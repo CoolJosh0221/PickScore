@@ -100,12 +100,6 @@ task:
 model:
   _target_: trainer.models.clip_model.CLIPModel
   pretrained_model_name_or_path: laion/CLIP-ViT-H-14-laion2B-s32B-b79K
-  vision_config:
-    dropout: 0.1
-    attention_dropout: 0.1
-  text_config:
-    dropout: 0.1
-    attention_dropout: 0.1
 criterion:
   _target_: trainer.criterions.clip_criterion.CLIPCriterion
   is_distributed: true
