@@ -1,6 +1,11 @@
 - +experiment=clip_h
+- +model.vision_config.dropout=0.1
+- +model.vision_config.attention_dropout=0.1
+- +model.text_config.dropout=0.1
+- +model.text_config.attention_dropout=0.1
 - output_dir=outputs
 - dataset=clip
 - dataset.dataset_name=../local_pickascore
 - dataset.dataset_config_name=default
 - dataset.from_disk=true
+- dataset.batch_size=4

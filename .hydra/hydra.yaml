@@ -113,15 +113,20 @@ hydra:
     - hydra.mode=RUN
     task:
     - +experiment=clip_h
+    - +model.vision_config.dropout=0.1
+    - +model.vision_config.attention_dropout=0.1
+    - +model.text_config.dropout=0.1
+    - +model.text_config.attention_dropout=0.1
     - output_dir=outputs
     - dataset=clip
     - dataset.dataset_name=../local_pickascore
     - dataset.dataset_config_name=default
     - dataset.from_disk=true
+    - dataset.batch_size=4
   job:
     name: train
     chdir: null
-    override_dirname: +experiment=clip_h,dataset.dataset_config_name=default,dataset.dataset_name=../local_pickascore,dataset.from_disk=true,dataset=clip,output_dir=outputs
+    override_dirname: +experiment=clip_h,+model.text_config.attention_dropout=0.1,+model.text_config.dropout=0.1,+model.vision_config.attention_dropout=0.1,+model.vision_config.dropout=0.1,dataset.batch_size=4,dataset.dataset_config_name=default,dataset.dataset_name=../local_pickascore,dataset.from_disk=true,dataset=clip,output_dir=outputs
     id: ???
     num: ???
     config_name: config
