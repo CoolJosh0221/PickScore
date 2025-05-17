@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from io import BytesIO
 from typing import Optional
 
@@ -27,7 +27,7 @@ class ProcessorConfig:
 @dataclass
 class CLIPHFDatasetConfig(BaseDatasetConfig):
     _target_: str = "trainer.datasetss.clip_hf_dataset.CLIPHFDataset"
-    dataset_name: str = "yuvalkirstain/pickapic_v1"
+    dataset_name: str = "kashif/pickascore"
     dataset_config_name: str = "null"
 
     from_disk: bool = False
@@ -54,7 +54,7 @@ class CLIPHFDatasetConfig(BaseDatasetConfig):
     keep_only_with_label: bool = False
     keep_only_with_label_in_non_train: bool = True
 
-    processor: ProcessorConfig = ProcessorConfig()
+    processor: ProcessorConfig = field(default_factory=lambda: ProcessorConfig())
 
     limit_examples_per_prompt: int = -1
 

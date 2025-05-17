@@ -17,8 +17,8 @@ class MixedPrecisionConfig:
 
 @dataclass
 class DeepSpeedConfig:
-    fp16: MixedPrecisionConfig = MixedPrecisionConfig(enabled=False)
-    bf16: MixedPrecisionConfig = MixedPrecisionConfig(enabled=False)
+    fp16: MixedPrecisionConfig = field(default_factory=lambda: MixedPrecisionConfig(enabled=False))
+    bf16: MixedPrecisionConfig = field(default_factory=lambda: MixedPrecisionConfig(enabled=False))
     optimizer: dict = field(default_factory=lambda: {
         "type": "AdamW",
         "params": {
@@ -58,7 +58,7 @@ class DeepSpeedConfig:
 @dataclass
 class DeepSpeedAcceleratorConfig(BaseAcceleratorConfig):
     _target_: str = "trainer.accelerators.deepspeed_accelerator.DeepSpeedAccelerator"
-    deepspeed: DeepSpeedConfig = DeepSpeedConfig()
+    deepspeed: DeepSpeedConfig = field(default_factory=lambda: DeepSpeedConfig())
     deepspeed_final: Any = None
 
 

@@ -1,0 +1,6 @@
+- +experiment=clip_h
+- output_dir=outputs
+- dataset=clip
+- dataset.dataset_name=../local_pickascore
+- dataset.dataset_config_name=default
+- dataset.from_disk=true

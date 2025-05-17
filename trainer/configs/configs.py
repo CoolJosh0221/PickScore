@@ -101,5 +101,5 @@ class TrainerConfig:
     dataset: Any = MISSING
     optimizer: Any = MISSING
     lr_scheduler: Any = MISSING
-    debug: DebugConfig = DebugConfig()
+    debug: DebugConfig = field(default_factory=lambda: DebugConfig())
     output_dir: str = "outputs"

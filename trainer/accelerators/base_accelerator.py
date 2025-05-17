@@ -53,7 +53,7 @@ class BaseAcceleratorConfig:
     mixed_precision: PrecisionType = PrecisionType.NO
     gradient_accumulation_steps: int = 1
     log_with: Optional[LoggerType] = LoggerType.WANDB
-    debug: DebugConfig = DebugConfig()
+    debug: DebugConfig = field(default_factory=lambda: DebugConfig())
     seed: int = 42
     resume_from_checkpoint: bool = True
     max_steps: int = 4000
