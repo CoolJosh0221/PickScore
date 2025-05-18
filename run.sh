@@ -23,6 +23,8 @@ DATASET_CONFIG="default"
 FROM_DISK=true
 BATCH_SIZE=4
 
+export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+
 ######
 # Launch!
 ######
