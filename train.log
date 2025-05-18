@@ -1245,3 +1245,85 @@
 [2025-05-18 14:35:02,601][trainer.accelerators.base_accelerator][INFO] - Metrics: {'accuracy': 0.5384615384615384, 'num_samples': 78}
 [2025-05-18 14:35:02,602][trainer.accelerators.base_accelerator][INFO] - Metric accuracy=0.5384615384615384 is not better than 0.5512820512820513 of outputs/checkpoint-gstep100, skipping checkpoint
 [2025-05-18 14:35:14,884][trainer.accelerators.base_accelerator][INFO] - Epoch 5 finished
+[2025-05-18 15:36:18,699][trainer.accelerators.base_accelerator][INFO] - Setting seed 42
+[2025-05-18 15:36:18,700][trainer.accelerators.base_accelerator][INFO] - Initialized accelerator: rank=0
+[2025-05-18 15:36:32,904][trainer.accelerators.base_accelerator][INFO] - Setting seed 42
+[2025-05-18 15:36:32,904][trainer.accelerators.base_accelerator][INFO] - Initialized accelerator: rank=0
+[2025-05-18 15:36:32,914][__main__][INFO] - Config can be found in outputs/config.yaml
+[2025-05-18 15:36:32,914][__main__][INFO] - Loading task
+[2025-05-18 15:36:33,266][__main__][INFO] - Loading model
+[2025-05-18 15:36:36,513][__main__][INFO] - Loading criterion
+[2025-05-18 15:36:36,513][__main__][INFO] - Loading optimizer
+[2025-05-18 15:36:36,515][__main__][INFO] - Loading lr scheduler
+[2025-05-18 15:36:36,515][__main__][INFO] - Loading dataloaders
+[2025-05-18 15:36:36,515][trainer.datasetss.clip_hf_dataset][INFO] - Loading train dataset
+[2025-05-18 15:36:36,522][trainer.datasetss.clip_hf_dataset][INFO] - Loaded 350 examples from train dataset
+[2025-05-18 15:36:36,522][trainer.datasetss.clip_hf_dataset][INFO] - Loaded 350 examples from train dataset
+[2025-05-18 15:36:38,590][trainer.datasetss.clip_hf_dataset][INFO] - Loading validation_unique dataset
+[2025-05-18 15:36:38,595][trainer.datasetss.clip_hf_dataset][INFO] - Loaded 90 examples from validation_unique dataset
+[2025-05-18 15:36:38,595][trainer.datasetss.clip_hf_dataset][INFO] - Keeping only examples with label in validation_unique split
+[2025-05-18 15:36:38,618][trainer.datasetss.clip_hf_dataset][INFO] - Kept 78 examples from validation_unique dataset
+[2025-05-18 15:36:38,618][trainer.datasetss.clip_hf_dataset][INFO] - Loaded 78 examples from validation_unique dataset
+[2025-05-18 15:36:40,734][trainer.datasetss.clip_hf_dataset][INFO] - Loading test_unique dataset
+[2025-05-18 15:36:40,740][trainer.datasetss.clip_hf_dataset][INFO] - Loaded 60 examples from test_unique dataset
+[2025-05-18 15:36:40,740][trainer.datasetss.clip_hf_dataset][INFO] - Keeping only examples with label in test_unique split
+[2025-05-18 15:36:40,758][trainer.datasetss.clip_hf_dataset][INFO] - Kept 45 examples from test_unique dataset
+[2025-05-18 15:36:40,758][trainer.datasetss.clip_hf_dataset][INFO] - Loaded 45 examples from test_unique dataset
+[2025-05-18 15:36:42,886][accelerate.accelerator][INFO] - Since you passed both train and evaluation dataloader, `is_train_batch_min` (here True will decide the `train_batch_size` (4).
+[2025-05-18 15:36:42,886][accelerate.accelerator][INFO] - Updating DeepSpeed's gradient accumulation steps to 1 from 16.
+[2025-05-18 15:36:44,088][trainer.accelerators.base_accelerator][INFO] - No checkpoint found, training from scratch
+[2025-05-18 15:36:44,100][trainer.accelerators.base_accelerator][INFO] - Initializing trackers
+[2025-05-18 15:36:45,568][trainer.accelerators.base_accelerator][INFO] - Training config:
+[2025-05-18 15:36:45,599][trainer.accelerators.base_accelerator][INFO] - nvidia-smi stats: {'gpu_0_mem_used_gb': 13.4072265625}
+[2025-05-18 15:36:45,599][trainer.accelerators.base_accelerator][INFO] - ***** Running training *****
+[2025-05-18 15:36:45,599][trainer.accelerators.base_accelerator][INFO] -   Instantaneous batch size per device = 4
+[2025-05-18 15:36:45,599][trainer.accelerators.base_accelerator][INFO] -   Total train batch size (w. parallel, distributed & accumulation) = 4
+[2025-05-18 15:36:45,599][trainer.accelerators.base_accelerator][INFO] -   Gradient Accumulation steps = 1
+[2025-05-18 15:36:45,599][trainer.accelerators.base_accelerator][INFO] -   Total warmup steps = 500
+[2025-05-18 15:36:45,599][trainer.accelerators.base_accelerator][INFO] -   Total training steps = 4000
+[2025-05-18 15:36:45,599][trainer.accelerators.base_accelerator][INFO] -   Total epochs = 46
+[2025-05-18 15:36:45,599][trainer.accelerators.base_accelerator][INFO] -   Steps per epoch = 88
+[2025-05-18 15:36:45,599][trainer.accelerators.base_accelerator][INFO] -   Update steps per epoch = 88
+[2025-05-18 15:36:45,599][trainer.accelerators.base_accelerator][INFO] -   Total optimization steps = 4000
+[2025-05-18 15:36:45,599][trainer.accelerators.base_accelerator][INFO] -   Mixed precision = bf16
+[2025-05-18 15:36:45,600][trainer.accelerators.base_accelerator][INFO] -   World size = 1
+[2025-05-18 15:36:45,600][__main__][INFO] - task: CLIPTask
+[2025-05-18 15:36:45,600][__main__][INFO] - model: DeepSpeedEngine
+[2025-05-18 15:36:45,601][__main__][INFO] - num. model params: 986M
+[2025-05-18 15:36:45,602][__main__][INFO] - num. model trainable params: 986M
+[2025-05-18 15:36:45,602][__main__][INFO] - criterion: CLIPCriterion
+[2025-05-18 15:36:45,602][__main__][INFO] - num. train examples: 350
+[2025-05-18 15:36:45,602][__main__][INFO] - num. valid examples: 78
+[2025-05-18 15:36:45,602][__main__][INFO] - num. test examples: 45
+[2025-05-18 15:36:45,707][__main__][INFO] - *** Evaluating validation_unique ***
+[2025-05-18 15:36:45,708][trainer.tasks.clip_task][INFO] - Running clip score...
+[2025-05-18 15:36:47,085][trainer.tasks.base_task][INFO] - Gathering dict from all processes...
+[2025-05-18 15:36:47,142][trainer.tasks.base_task][INFO] - Uploading to wandb
+[2025-05-18 15:36:49,153][trainer.accelerators.base_accelerator][INFO] - Metrics: {'accuracy': 0.48717948717948717, 'num_samples': 78}
+[2025-05-18 15:37:27,833][trainer.accelerators.base_accelerator][INFO] - Epoch 0 finished
+[2025-05-18 15:37:33,210][__main__][INFO] - *** Evaluating validation_unique ***
+[2025-05-18 15:37:33,210][trainer.tasks.clip_task][INFO] - Running clip score...
+[2025-05-18 15:37:34,341][trainer.tasks.base_task][INFO] - Gathering dict from all processes...
+[2025-05-18 15:37:34,382][trainer.tasks.base_task][INFO] - Uploading to wandb
+[2025-05-18 15:37:35,867][trainer.accelerators.base_accelerator][INFO] - Metrics: {'accuracy': 0.5128205128205128, 'num_samples': 78}
+[2025-05-18 15:37:35,868][trainer.accelerators.base_accelerator][INFO] - Not cleaning up checkpoints as only 0 checkpoints found
+[2025-05-18 15:37:35,868][trainer.accelerators.base_accelerator][INFO] - Saving checkpoint to outputs/checkpoint-gstep100
+[2025-05-18 15:37:35,868][accelerate.accelerator][INFO] - Saving current state to outputs/checkpoint-gstep100
+[2025-05-18 15:37:35,868][accelerate.accelerator][INFO] - Saving DeepSpeed Model and Optimizer
+[2025-05-18 15:37:43,679][accelerate.accelerator][INFO] - DeepSpeed Model and Optimizer saved to output dir outputs/checkpoint-gstep100/pytorch_model
+[2025-05-18 15:37:43,680][accelerate.checkpointing][INFO] - Random states saved in outputs/checkpoint-gstep100/random_states_0.pkl
+[2025-05-18 15:37:43,680][trainer.accelerators.base_accelerator][INFO] - Saved checkpoint to outputs/checkpoint-gstep100
+[2025-05-18 15:38:17,164][trainer.accelerators.base_accelerator][INFO] - Epoch 1 finished
+[2025-05-18 15:38:27,829][__main__][INFO] - *** Evaluating validation_unique ***
+[2025-05-18 15:38:27,830][trainer.tasks.clip_task][INFO] - Running clip score...
+[2025-05-18 15:38:28,959][trainer.tasks.base_task][INFO] - Gathering dict from all processes...
+[2025-05-18 15:38:29,011][trainer.tasks.base_task][INFO] - Uploading to wandb
+[2025-05-18 15:38:30,583][trainer.accelerators.base_accelerator][INFO] - Metrics: {'accuracy': 0.5128205128205128, 'num_samples': 78}
+[2025-05-18 15:38:30,583][trainer.accelerators.base_accelerator][INFO] - Not cleaning up checkpoints as only 1 checkpoints found
+[2025-05-18 15:38:30,584][trainer.accelerators.base_accelerator][INFO] - Saving checkpoint to outputs/checkpoint-gstep200
+[2025-05-18 15:38:30,584][accelerate.accelerator][INFO] - Saving current state to outputs/checkpoint-gstep200
+[2025-05-18 15:38:30,584][accelerate.accelerator][INFO] - Saving DeepSpeed Model and Optimizer
+[2025-05-18 15:38:38,940][accelerate.accelerator][INFO] - DeepSpeed Model and Optimizer saved to output dir outputs/checkpoint-gstep200/pytorch_model
+[2025-05-18 15:38:38,941][accelerate.checkpointing][INFO] - Random states saved in outputs/checkpoint-gstep200/random_states_0.pkl
+[2025-05-18 15:38:38,941][trainer.accelerators.base_accelerator][INFO] - Saved checkpoint to outputs/checkpoint-gstep200
+[2025-05-18 15:39:07,156][trainer.accelerators.base_accelerator][INFO] - Epoch 2 finished

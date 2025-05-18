@@ -43,6 +43,34 @@ def debug_forward(self, input_ids=None, position_ids=None, inputs_embeds=None):
 CLIPTextEmbeddings.forward = debug_forward
 # ------------------------------------------------------------------------------
 
+from transformers.models.clip.modeling_clip import CLIPVisionEmbeddings
+
+# Keep original method reference
+_orig_vision_embeddings_forward = CLIPVisionEmbeddings.forward
+
+# Define debug forward method for vision embeddings
+def vision_debug_forward(self, pixel_values):
+    batch_size = pixel_values.shape[0]
+    patch_embeds = self.patch_embedding(pixel_values)
+    
+    # Print helpful debug info
+    num_patches = patch_embeds.shape[1]
+    print(f"→ Vision: num patches: {num_patches}")
+    print(f"→ Vision: position embedding size: {self.position_embedding.num_embeddings}")
+    
+    # Check if we're using too many patches for the position embedding table
+    if num_patches + 1 > self.position_embedding.num_embeddings:  # +1 for class token
+        raise ValueError(
+            f"Too many patches ({num_patches}+1) for position embeddings table size "
+            f"({self.position_embedding.num_embeddings}). Try reducing image size."
+        )
+    
+    # Call original with extra safety
+    return _orig_vision_embeddings_forward(self, pixel_values)
+
+# Patch in the debug method
+CLIPVisionEmbeddings.forward = vision_debug_forward
+
 def main():
     # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     device = "cpu"
@@ -97,10 +125,14 @@ def main():
     # 6. Load processor for inference
     processor = CLIPProcessor.from_pretrained("laion/CLIP-ViT-H-14-laion2B-s32B-b79K")
 
+    print(f"Processor name: {processor.__class__.__name__}")
+    print(f"Processor image size: {processor.image_processor.size}")
+    print(f"Do not resize in processor: {processor.image_processor.do_resize}")
+
     # 7. Prepare sample data for inference
     # For demo purposes, create two random images - replace with actual images
     sample_images = [
-        Image.new("RGB", (224, 224), color=(73, 109, 137)),
+        Image.new("RGB", (4, 224), color=(73, 109, 137)),
         Image.new("RGB", (224, 224), color=(220, 120, 80)),
     ]
     sample_prompt = "A beautiful landscape photo"
@@ -113,9 +145,11 @@ def main():
     # Process inputs
     image_inputs = processor(
         images=sample_images,
-        padding="max_length",
-        truncation=True,
-        max_length=77,
+        # padding="max_length",
+        # truncation=True,
+        # max_length=77,
+        size={"shortest_edge": 224, "longest_edge": 224},
+        do_resize=True,
         return_tensors="pt",
     ).to(device)
 
