@@ -25,11 +25,11 @@ class CLIPModel(nn.Module):
         pretrained_model_config = HFCLIPConfig.from_pretrained(
             cfg.pretrained_model_name_or_path
         )
-        # Set dropout rates in text encoder
+        # # Set dropout rates in text encoder
         pretrained_model_config.text_config.attention_dropout = cfg.dropout_rate
         pretrained_model_config.text_config.dropout = cfg.dropout_rate
 
-        # Set dropout rates in vision encoder
+        # # Set dropout rates in vision encoder
         pretrained_model_config.vision_config.attention_dropout = cfg.dropout_rate
         pretrained_model_config.vision_config.dropout = cfg.dropout_rate
 
@@ -188,8 +188,6 @@ class CLIPModel(nn.Module):
             max_length=77,
             return_tensors="pt",
         ).to(device)
-
-        breakpoint()
 
         all_probs = []
 
