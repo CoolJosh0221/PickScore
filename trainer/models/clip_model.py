@@ -220,3 +220,73 @@ class CLIPModel(nn.Module):
             "std_probs": std_probs.tolist(),
             "all_samples": all_probs_tensor.tolist(),
         }
+
+    def calc_score_of_one_image_with_uncertainty(
+        self, prompt, image, processor, n_samples=10, device="cuda"
+    ):
+        """
+        Calculate preference probabilities with uncertainty estimation using MC Dropout
+
+        Args:
+            prompt: Text prompt
+            image: Image (exactly one)
+            processor: CLIP processor
+            n_samples: Number of MC samples
+            device: Device to run inference on
+
+        Returns:
+            Dictionary with mean probabilities, standard deviations, and all samples
+        """
+        # Enable MC dropout and switch to evaluation mode
+        print(f"Original image dimensions: {image.size}")
+
+        original_mc_state = self.enable_mc_dropout
+        self.enable_mc_dropout = True
+        self.eval()
+
+        # Process inputs with FIXED SIZE - key change to fix the error
+        image_inputs = processor(
+            images=image,
+            # do_resize=True,
+            size={"shortest_edge": 224, "longest_edge": 224},  # Fixed size for CLIP ViT-H-14
+            return_tensors="pt",
+        ).to(device)
+
+        text_inputs = processor(
+            text=prompt,
+            padding="max_length",
+            truncation=True,
+            max_length=77,
+            return_tensors="pt",
+        ).to(device)
+
+        all_scores = []
+
+        with torch.no_grad():
+            for _ in range(n_samples):
+                # Get features
+                image_embs = self.get_image_features(**image_inputs)
+                image_embs = image_embs / torch.norm(image_embs, dim=-1, keepdim=True)
+
+                text_embs = self.get_text_features(**text_inputs)
+                text_embs = text_embs / torch.norm(text_embs, dim=-1, keepdim=True)
+
+                # Calculate scores
+                scores = self.logit_scale.exp() * (text_embs @ image_embs.T)[0]
+                all_scores.append(scores.cpu())
+
+        # Restore original MC dropout state
+        self.enable_mc_dropout = original_mc_state
+        if not self.enable_mc_dropout:
+            self.eval()  # Reset to proper eval state
+
+        # Calculate statistics
+        all_scores_tensor = torch.stack(all_scores)
+        mean_score = torch.mean(all_scores_tensor, dim=0)[0]
+        std_score = torch.std(all_scores_tensor, dim=0)[0]
+
+        return {
+            "mean_score": mean_score.item(),
+            "std_score": std_score.item(),
+            "all_samples": all_scores_tensor.tolist(),
+        }
