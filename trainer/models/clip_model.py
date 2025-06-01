@@ -13,7 +13,7 @@ from trainer.models.base_model import BaseModelConfig
 class ClipModelConfig(BaseModelConfig):
     _target_: str = "trainer.models.clip_model.CLIPModel"
     pretrained_model_name_or_path: str = "openai/clip-vit-base-patch32"
-    dropout_rate: float = 0.1
+    dropout_rate: float = 0.0
     enable_mc_dropout: bool = False
 
 

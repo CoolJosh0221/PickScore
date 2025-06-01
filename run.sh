@@ -16,12 +16,15 @@ USE_DEEPSPEED="yes"
 EXPERIMENT="clip_h"
 OUTPUT_DIR="outputs"
 
+# Pretrained model
+PRETRAINED_MODEL_NAME_OR_PATH="openai/clip-vit-base-patch32"
+
 # Dataset
 DATASET="clip"
 DATASET_NAME="../local_pickascore"
 DATASET_CONFIG="default"
 FROM_DISK=true
-BATCH_SIZE=4
+BATCH_SIZE=2
 
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
@@ -42,4 +45,7 @@ PYTHONPATH=$PWD accelerate launch \
     dataset.dataset_name="$DATASET_NAME" \
     dataset.dataset_config_name="$DATASET_CONFIG" \
     dataset.from_disk=$FROM_DISK \
-    dataset.batch_size=$BATCH_SIZE
+    dataset.batch_size=$BATCH_SIZE \
+    model.pretrained_model_name_or_path=$PRETRAINED_MODEL_NAME_OR_PATH \
+    task.pretrained_model_name_or_path=$PRETRAINED_MODEL_NAME_OR_PATH \
+    dataset.processor.pretrained_model_name_or_path=$PRETRAINED_MODEL_NAME_OR_PATH \

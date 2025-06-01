@@ -13,22 +13,25 @@ def main():
 
     # 1. Initialize model configuration with MC dropout
     model_config = ClipModelConfig(
-        pretrained_model_name_or_path="yuvalkirstain/PickScore_v1",
-        dropout_rate=0.3,
+        pretrained_model_name_or_path="openai/clip-vit-base-patch32",
+        # pretrained_model_name_or_path="yuvalkirstain/PickScore_v1",
+        dropout_rate=0.0,
         enable_mc_dropout=False,  # Start with MC dropout disabled
     )
 
     # 2. Create the model
     model = CLIPModel(model_config)
     model = model.to(device)
+    breakpoint()
 
     # 3. Load pretrained weights
-    # print("Loading pretrained weights...")
-    # state_dict = torch.load(
-    #     "outputs/checkpoint-gstep100/pytorch_model.bin", weights_only=False
-    # )
-    # model.load_state_dict(state_dict)
-    # print("Weights loaded successfully")
+    print("Loading pretrained weights...")
+    state_dict = torch.load(
+        "outputs/checkpoint-gstep100/pytorch_model.bin", weights_only=False
+    )
+    model.load_state_dict(state_dict)
+    print("Weights loaded successfully")
+    breakpoint()
 
     print(
         "pos-embedding weight shape:",
@@ -46,7 +49,7 @@ def main():
     # summary(model, device=device)
 
     # 5. Load processor for inference
-    processor = CLIPProcessor.from_pretrained("laion/CLIP-ViT-H-14-laion2B-s32B-b79K")
+    processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
     print(f"Processor name: {processor.__class__.__name__}")
     print(f"Processor image size: {processor.image_processor.size}")
@@ -96,12 +99,14 @@ def main():
 
         image_features = model.get_image_features(**image_inputs)
         print(f"Image features shape: {image_features.shape}")
+        # breakpoint()
 
         # Normalize features
         text_features = text_features / torch.norm(text_features, dim=-1, keepdim=True)
         image_features = image_features / torch.norm(
             image_features, dim=-1, keepdim=True
         )
+        # breakpoint()
 
         # Calculate scores and probabilities
         scores = model.logit_scale.exp() * (text_features @ image_features.T)[0]
@@ -121,6 +126,7 @@ def main():
     )
 
     # Display results
+    print(f"All scores: {mc_results['all_samples']}")
     print(f"Mean score: {mc_results['mean_score']}")
     print(f"Standard deviation: {mc_results['std_score']}")
 
@@ -159,20 +165,20 @@ def main():
     except Exception as e:
         print(f"Could not create visualization: {e}")
 
-    # # 10. Test if MC dropout is actually applying stochasticity
-    # print("\nTesting if MC dropout is applying stochasticity...")
-    # model.enable_mc_dropout = True
-    # model.eval()
+    # 10. Test if MC dropout is actually applying stochasticity
+    print("\nTesting if MC dropout is applying stochasticity...")
+    model.enable_mc_dropout = True
+    model.eval()
 
-    # with torch.no_grad():
-    #     # Get features twice
-    #     text_features1 = model.get_text_features(**text_inputs)
-    #     text_features2 = model.get_text_features(**text_inputs)
+    with torch.no_grad():
+        # Get features twice
+        text_features1 = model.get_text_features(**text_inputs)
+        text_features2 = model.get_text_features(**text_inputs)
 
-    #     # Check if they're different (which they should be with MC dropout)
-    #     is_different = not torch.allclose(text_features1, text_features2)
+        # Check if they're different (which they should be with MC dropout)
+        is_different = not torch.allclose(text_features1, text_features2)
 
-    # print(f"MC dropout is working: {is_different}")
+    print(f"MC dropout is working: {is_different}")
 
     # # 11. Measure the average variance to quantify uncertainty
     # if "text_features_samples" in mc_results:

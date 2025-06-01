@@ -98,7 +98,7 @@ def main(cfg: TrainerConfig) -> None:
         logger.info(f"*** Evaluating {cfg.dataset.valid_split_name} ***")
         metrics = task.evaluate(model, criterion, split2dataloader[cfg.dataset.valid_split_name])
         accelerator.update_metrics(metrics)
-        accelerator.gradient_state.end_of_dataloader = end_of_train_dataloader
+        # accelerator.gradient_state.end_of_dataloader = end_of_train_dataloader
 
     logger.info(f"task: {task.__class__.__name__}")
     logger.info(f"model: {model.__class__.__name__}")

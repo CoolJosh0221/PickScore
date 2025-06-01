@@ -4,4 +4,7 @@
 - dataset.dataset_name=../local_pickascore
 - dataset.dataset_config_name=default
 - dataset.from_disk=true
-- dataset.batch_size=4
+- dataset.batch_size=2
+- model.pretrained_model_name_or_path=openai/clip-vit-base-patch32
+- task.pretrained_model_name_or_path=openai/clip-vit-base-patch32
+- dataset.processor.pretrained_model_name_or_path=openai/clip-vit-base-patch32
