@@ -6,6 +6,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from trainer.models.clip_model import CLIPModel, ClipModelConfig
 
+NUM_SAMPLES = 100 # Number of MC dropout samples to average over
+PRETRAINED_MODEL_NAME = "openai/clip-vit-base-patch32"
+DROPOUT_RATE = 0.1
+
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     # device = "cpu"
@@ -13,9 +17,9 @@ def main():
 
     # 1. Initialize model configuration with MC dropout
     model_config = ClipModelConfig(
-        pretrained_model_name_or_path="openai/clip-vit-base-patch32",
+        pretrained_model_name_or_path=PRETRAINED_MODEL_NAME,
         # pretrained_model_name_or_path="yuvalkirstain/PickScore_v1",
-        dropout_rate=0.0,
+        dropout_rate=DROPOUT_RATE,
         enable_mc_dropout=False,  # Start with MC dropout disabled
     )
 
@@ -27,9 +31,10 @@ def main():
     # 3. Load pretrained weights
     print("Loading pretrained weights...")
     state_dict = torch.load(
-        "outputs/checkpoint-gstep100/pytorch_model.bin", weights_only=False
+        # "outputs/checkpoint-gstep100/pytorch_model.bin", weights_only=False
+        "outputs/checkpoint-final/pytorch_model.bin", weights_only=False
     )
-    model.load_state_dict(state_dict)
+    model.model.load_state_dict(state_dict)
     print("Weights loaded successfully")
     breakpoint()
 
@@ -121,7 +126,7 @@ def main():
         prompt=sample_prompt,
         image=sample_images[0],
         processor=processor,
-        n_samples=30,
+        n_samples=NUM_SAMPLES,
         device=device,
     )
 
