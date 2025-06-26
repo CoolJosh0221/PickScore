@@ -83,7 +83,9 @@ def main(cfg: TrainerConfig) -> None:
     split2dataloader = load_dataloaders(cfg.dataset)
 
     dataloaders = list(split2dataloader.values())
+    # breakpoint()
     model, optimizer, lr_scheduler, *dataloaders = accelerator.prepare(model, optimizer, lr_scheduler, *dataloaders)
+    # breakpoint()
     split2dataloader = dict(zip(split2dataloader.keys(), dataloaders))
 
     accelerator.load_state_if_needed()

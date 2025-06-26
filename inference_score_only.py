@@ -6,19 +6,17 @@ import matplotlib.pyplot as plt
 import numpy as np
 from trainer.models.clip_model import CLIPModel, ClipModelConfig
 
-NUM_SAMPLES = 100 # Number of MC dropout samples to average over
+NUM_SAMPLES = 1000 # Number of MC dropout samples to average over
 PRETRAINED_MODEL_NAME = "openai/clip-vit-base-patch32"
 DROPOUT_RATE = 0.1
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    # device = "cpu"
     print(f"Using device: {device}")
 
     # 1. Initialize model configuration with MC dropout
     model_config = ClipModelConfig(
         pretrained_model_name_or_path=PRETRAINED_MODEL_NAME,
-        # pretrained_model_name_or_path="yuvalkirstain/PickScore_v1",
         dropout_rate=DROPOUT_RATE,
         enable_mc_dropout=False,  # Start with MC dropout disabled
     )
@@ -26,17 +24,14 @@ def main():
     # 2. Create the model
     model = CLIPModel(model_config)
     model = model.to(device)
-    breakpoint()
 
     # 3. Load pretrained weights
     print("Loading pretrained weights...")
     state_dict = torch.load(
-        # "outputs/checkpoint-gstep100/pytorch_model.bin", weights_only=False
         "outputs/checkpoint-final/pytorch_model.bin", weights_only=False
     )
     model.model.load_state_dict(state_dict)
     print("Weights loaded successfully")
-    breakpoint()
 
     print(
         "pos-embedding weight shape:",
@@ -104,14 +99,12 @@ def main():
 
         image_features = model.get_image_features(**image_inputs)
         print(f"Image features shape: {image_features.shape}")
-        # breakpoint()
 
         # Normalize features
         text_features = text_features / torch.norm(text_features, dim=-1, keepdim=True)
         image_features = image_features / torch.norm(
             image_features, dim=-1, keepdim=True
         )
-        # breakpoint()
 
         # Calculate scores and probabilities
         scores = model.logit_scale.exp() * (text_features @ image_features.T)[0]
@@ -131,9 +124,15 @@ def main():
     )
 
     # Display results
-    print(f"All scores: {mc_results['all_samples']}")
+    # print(f"All scores: {mc_results['all_samples']}")
     print(f"Mean score: {mc_results['mean_score']}")
     print(f"Standard deviation: {mc_results['std_score']}")
+    print(f"Variance: {mc_results['std_score']}")
+    print(f"Coefficient of variation: {mc_results['cv_score']}")
+    print(f"Median absolute deviation: {mc_results['mad_score']}")
+    print(f"IQR: {mc_results['iqr_score']}")
+    print(f"90% confidence interval width: {mc_results['ci90_score']}")
+    print(f"95% confidence interval width: {mc_results['ci95_score']}")
 
 
     # 9. Visualize uncertainty (optional, if matplotlib is available)
@@ -153,7 +152,7 @@ def main():
         plt.errorbar(
             positions,
             mc_results["mean_score"],
-            yerr=mc_results["std_score"],
+            yerr=mc_results["uncertainty_score"],
             fmt="o",
             color="black",
             capsize=5,

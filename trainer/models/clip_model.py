@@ -229,11 +229,11 @@ class CLIPModel(nn.Module):
         # Calculate statistics
         all_probs_tensor = torch.stack(all_probs)
         mean_probs = torch.mean(all_probs_tensor, dim=0)
-        std_probs = self.acquisition_function(all_probs_tensor, dim=0)
+        uncertainty_probs = self.acquisition_function(all_probs_tensor, dim=0)
 
         return {
             "mean_probs": mean_probs.tolist(),
-            "std_probs": std_probs.tolist(),
+            "uncertainty_probs": uncertainty_probs.tolist(),
             "all_samples": all_probs_tensor.tolist(),
         }
 
@@ -310,10 +310,24 @@ class CLIPModel(nn.Module):
         # Calculate statistics
         all_scores_tensor = torch.stack(all_scores)
         mean_score = torch.mean(all_scores_tensor, dim=0)[0]
-        std_score = self.acquisition_function(all_scores_tensor, dim=0)[0]
+        breakpoint()
+        std_score = torch.std(all_scores_tensor, dim=0)[0]
+        var_score = torch.var(all_scores_tensor, dim=0)[0]
+        cv_score = std_score / (mean_score + 1e-8)
+        mad_score = torch.median(torch.abs(all_scores_tensor - torch.median(all_scores_tensor, dim=0)[0]), dim=0)[0]
+        # different confidence interval width
+        iqr_score = torch.quantile(all_scores_tensor, 0.75, dim=0)[0] - torch.quantile(all_scores_tensor, 0.25, dim=0)[0]
+        ci90_score = torch.quantile(all_scores_tensor, 0.95, dim=0)[0] - torch.quantile(all_scores_tensor, 0.05, dim=0)[0]
+        ci95_score = torch.quantile(all_scores_tensor, 0.975, dim=0)[0] - torch.quantile(all_scores_tensor, 0.25, dim=0)[0]
 
         return {
             "mean_score": mean_score.item(),
             "std_score": std_score.item(),
+            "var_score": var_score.item(),
+            "cv_score": cv_score.item(),
+            "mad_score": mad_score.item(),
+            "iqr_score": iqr_score.item(),
+            "ci90_score": ci90_score.item(),
+            "ci95_score": ci95_score.item(),
             "all_samples": all_scores_tensor.tolist(),
         }
