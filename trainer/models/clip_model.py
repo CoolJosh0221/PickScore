@@ -310,7 +310,6 @@ class CLIPModel(nn.Module):
         # Calculate statistics
         all_scores_tensor = torch.stack(all_scores)
         mean_score = torch.mean(all_scores_tensor, dim=0)[0]
-        breakpoint()
         std_score = torch.std(all_scores_tensor, dim=0)[0]
         var_score = torch.var(all_scores_tensor, dim=0)[0]
         cv_score = std_score / (mean_score + 1e-8)
