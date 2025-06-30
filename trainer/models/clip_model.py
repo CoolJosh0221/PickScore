@@ -5,6 +5,7 @@ from transformers import CLIPModel as HFCLIPModel
 from transformers import CLIPConfig as HFCLIPConfig
 
 from torch import nn
+from tqdm.rich import tqdm
 
 from trainer.models.base_model import BaseModelConfig
 
@@ -238,8 +239,8 @@ class CLIPModel(nn.Module):
         }
 
     def calc_score_of_one_image_with_uncertainty(
-        self, prompt, image, processor, n_samples=100, device="cuda"
-    ):
+        self, prompt, image, processor, n_samples=100, device: str | torch.device="cuda"
+    ) -> dict[str, float]:
         """
         Calculate preference probabilities with uncertainty estimation using MC Dropout
 
@@ -262,7 +263,7 @@ class CLIPModel(nn.Module):
             )
             
 
-        print(f"Original image dimensions: {image.size}")
+        # print(f"Original image dimensions: {image.size}")
 
         original_mc_state = self.enable_mc_dropout
         self.enable_mc_dropout = True
@@ -290,7 +291,7 @@ class CLIPModel(nn.Module):
         all_scores = []
 
         with torch.no_grad():
-            for _ in range(n_samples):
+            for _ in tqdm(range(n_samples)):
                 # Get features
                 image_embs = self.get_image_features(**image_inputs)
                 image_embs = image_embs / torch.norm(image_embs, dim=-1, keepdim=True)
@@ -328,5 +329,5 @@ class CLIPModel(nn.Module):
             "iqr_score": iqr_score.item(),
             "ci90_score": ci90_score.item(),
             "ci95_score": ci95_score.item(),
-            "all_samples": all_scores_tensor.tolist(),
+            # "all_samples": all_scores_tensor.tolist(),
         }

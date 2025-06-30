@@ -46,7 +46,7 @@ class EvaluationConfig:
         }
     
     # MC Dropout Configs
-    NUM_SAMPLES = 1000 # Number of MC dropout samples to average over
+    NUM_SAMPLES = 100 # Number of MC dropout samples to average over
     PRETRAINED_MODEL_NAME = "openai/clip-vit-base-patch32"
     DROPOUT_RATE = 0.1
 
