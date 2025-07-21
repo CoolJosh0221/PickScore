@@ -21,7 +21,7 @@ def compute_mean_uncertainty(mc_results: dict):
     return results
 
 def main() -> None:
-    json_file = "output.json"
+    json_file = "output_with_long_prompts.json"
     with open(json_file, "r") as f:
         mc_results = json.load(
             f,
@@ -30,7 +30,7 @@ def main() -> None:
             },
         )
     results = compute_mean_uncertainty(mc_results)
-    output_json_file = "output_mean_uncertainty_scores.json"
+    output_json_file = "output_with_long_prompts_mean_uncertainty_scores.json"
     with open(output_json_file, "w") as f:
         json.dump(results, f)
 

@@ -2,7 +2,11 @@ import torch
 
 from pathlib import Path
 
-from diffusers import StableDiffusionXLPipeline, UNet2DConditionModel, EulerDiscreteScheduler
+from diffusers import (
+    StableDiffusionXLPipeline,
+    UNet2DConditionModel,
+    EulerDiscreteScheduler,
+)
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
 
@@ -18,19 +22,26 @@ pipeline.to("cuda")
 
 base = "stabilityai/stable-diffusion-xl-base-1.0"
 repo = "ByteDance/SDXL-Lightning"
-ckpt = "sdxl_lightning_4step_unet.safetensors" # Use the correct ckpt for your step setting!
+ckpt = "sdxl_lightning_4step_unet.safetensors"  # Use the correct ckpt for your step setting!
 
 # Load model.
-unet = UNet2DConditionModel.from_config(base, subfolder="unet").to("cuda", torch.float16)
+unet = UNet2DConditionModel.from_config(base, subfolder="unet").to(
+    "cuda", torch.float16
+)
 unet.load_state_dict(load_file(hf_hub_download(repo, ckpt), device="cuda"))
-pipe = StableDiffusionXLPipeline.from_pretrained(base, unet=unet, torch_dtype=torch.float16, variant="fp16").to("cuda")
+pipe = StableDiffusionXLPipeline.from_pretrained(
+    base, unet=unet, torch_dtype=torch.float16, variant="fp16"
+).to("cuda")
 
 # Ensure sampler uses "trailing" timesteps.
-pipe.scheduler = EulerDiscreteScheduler.from_config(pipe.scheduler.config, timestep_spacing="trailing")
+pipe.scheduler = EulerDiscreteScheduler.from_config(
+    pipe.scheduler.config, timestep_spacing="trailing"
+)
 
 # Ensure using the same inference steps as the loaded model and CFG set to 0.
 
-for style in EvaluationConfig.prompts.keys():
+
+def generate_for_style(style) -> None:
     parent_directory_path = Path(f"test_images/real_images/{style}")
     parent_directory_path.mkdir(parents=True, exist_ok=True)
     for i, prompt in enumerate(EvaluationConfig.prompts[style]):
@@ -44,3 +55,7 @@ for style in EvaluationConfig.prompts.keys():
 
             img.save(child_directory_path / f"{j}.png")
             print(f"Saved image {style}-{i}-{j}")
+
+if __name__ == "__main__":
+    for style in EvaluationConfig.prompts.keys():
+        generate_for_style(style)

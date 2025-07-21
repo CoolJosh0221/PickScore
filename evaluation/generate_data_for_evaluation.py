@@ -96,9 +96,16 @@ def evaluate_all() -> dict[str, dict[int, dict[int, dict[str, float]]]]:
 
 
 def main() -> None:
-    results = evaluate_all()
-    with open("output.json", "w") as json_file:
-        json.dump(results, json_file)
+    # results = evaluate_all()
+    # with open("output.json", "w") as json_file:
+    #     json.dump(results, json_file)
+    additional_results = evaluate_for_one_style("long")
+    with open("output.json", "r") as json_file:
+        mc_results = json.load(json_file)
+
+    mc_results["long"] = additional_results
+    with open("output_with_long_prompts.json", "w") as json_file:
+        mc_results = json.dump(mc_results, json_file)
 
 
 if __name__ == "__main__":
