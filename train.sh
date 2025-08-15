@@ -1,9 +1,3 @@
-# export PYTHONPATH="$(pwd)/.."
-
-######
-# Configuration
-######
-
 # Accelerate settings
 DYNAMO_BACKEND="no"
 GPU_IDS="all"
@@ -18,14 +12,13 @@ OUTPUT_DIR="outputs"
 
 # Dataset
 DATASET="clip"
-DATASET_NAME="../local_pickascore"
+DATASET_NAME="minimal-pickapic-ds"
 DATASET_CONFIG="default"
 FROM_DISK=true
 BATCH_SIZE=4
 
-######
-# Launch!
-######
+# Model Selection
+
 PYTHONPATH=$PWD accelerate launch \
   --dynamo_backend $DYNAMO_BACKEND \
   --gpu_ids $GPU_IDS \
@@ -35,6 +28,7 @@ PYTHONPATH=$PWD accelerate launch \
   $( [ "$USE_DEEPSPEED" = "yes" ] && echo "--use_deepspeed" ) \
   trainer/scripts/train.py \
     +experiment=$EXPERIMENT \
+    model=mcdo \
     output_dir=$OUTPUT_DIR \
     dataset=$DATASET \
     dataset.dataset_name="$DATASET_NAME" \

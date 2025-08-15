@@ -1,0 +1,2 @@
+_target_: trainer.models.clip_model_baseline.BaselineCLIPModel
+pretrained_model_name_or_path: yuvalkirstain/PickScore_v1

@@ -1,9 +1,0 @@
-accelerate
-datasets
-deepspeed
-fire
-hydra-core
-rich
-submitit
-transformers
-wandb
