@@ -86,17 +86,6 @@ def sample_and_save(
     return out_dir
 
 
-def get_transforms(image_size: int = 512):
-    """Image transforms for resizing + normalization."""
-    return T.Compose(
-        [
-            T.Resize((image_size, image_size)),
-            T.ToTensor(),
-            T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
-        ]
-    )
-
-
 class PreferenceDataset(Dataset):
     """
     Wrap a HuggingFace dataset split (train/valid/test) for PyTorch training.
@@ -105,7 +94,6 @@ class PreferenceDataset(Dataset):
 
     def __init__(self, split_dir: Path, image_size: int = 512):
         self.ds = HFDataset.load_from_disk(str(split_dir))
-        self.tr = get_transforms(image_size)
 
     def __len__(self):
         return len(self.ds)
@@ -113,8 +101,8 @@ class PreferenceDataset(Dataset):
     def __getitem__(self, idx):
         row = self.ds[idx]
         caption = row["caption"]
-        img0 = self.tr(Image.open(io.BytesIO(row["jpg_0"])).convert("RGB"))
-        img1 = self.tr(Image.open(io.BytesIO(row["jpg_1"])).convert("RGB"))
+        img0 = Image.open(io.BytesIO(row["jpg_0"]))
+        img1 = Image.open(io.BytesIO(row["jpg_1"]))
         lab0 = float(row["label_0"])
         lab1 = float(row["label_1"])
         return {
