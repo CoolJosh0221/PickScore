@@ -159,4 +159,7 @@ site/
 
 # Project-specific
 active_learning_old
-minimal-pickapic-ds
+minimal_pickapic-ds
+src_old/
+runs/
+active_learning_old/

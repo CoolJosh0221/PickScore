@@ -10,6 +10,6 @@ class BaseModelConfig:
     _target_: str = field(
         default="", validator=instance_of(str)
     )  # Hydra instantiate target
-    pretrained_model_name_or_path = field(
+    pretrained_model_name_or_path: str = field(
         default="openai/clip-vit-base-patch32", validator=instance_of(str)
     )  # HF hub ID or local path
