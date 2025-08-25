@@ -12,8 +12,6 @@ import torchvision.transforms as T
 from torch.utils.data import Dataset, DataLoader
 
 
-# ---------------- configs ----------------
-
 CONFIGS: Dict[str, Dict] = {
     "quick": {  # small dataset for testing
         "target_samples": 1000,
@@ -46,7 +44,7 @@ def sample_and_save(
 
     # streaming + shuffle = bounded memory
     ds: IterableDataset = load_dataset(dataset_name, split=split, streaming=True)
-    ds = ds.filter(lambda x: x["has_label"])
+    ds = ds.filter(lambda x: x["are_different"])
     ds = ds.shuffle(buffer_size=1000, seed=cfg["seed"])
 
     total = cfg["target_samples"]
@@ -92,7 +90,7 @@ class PreferenceDataset(Dataset):
     Decodes images and returns tensors with labels.
     """
 
-    def __init__(self, split_dir: Path, image_size: int = 512):
+    def __init__(self, split_dir: Path, image_size: int = 224):
         self.ds = HFDataset.load_from_disk(str(split_dir))
 
     def __len__(self):
@@ -114,13 +112,27 @@ class PreferenceDataset(Dataset):
         }
 
 
+def collate_fn(batch):
+    return {
+        "caption": [b["caption"] for b in batch],
+        "image_0": [b["image_0"] for b in batch],
+        "image_1": [b["image_1"] for b in batch],
+        "label_0": torch.tensor(
+            [float(b["label_0"]) for b in batch], dtype=torch.float32
+        ),
+        "label_1": torch.tensor(
+            [float(b["label_1"]) for b in batch], dtype=torch.float32
+        ),
+    }
+
+
 def create_dataloader(
     data_dir: Path,
     split: str,
     batch_size: int = 32,
     num_workers: int = 4,
     shuffle: bool = True,
-    image_size: int = 512,
+    image_size: int = 224,
 ) -> DataLoader:
     """
     Create a PyTorch DataLoader for a given split (train/valid/test).
@@ -133,4 +145,5 @@ def create_dataloader(
         num_workers=num_workers,
         pin_memory=torch.cuda.is_available(),
         persistent_workers=num_workers > 0,
+        collate_fn=collate_fn,
     )

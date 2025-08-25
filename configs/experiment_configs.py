@@ -39,6 +39,8 @@ class ExperimentConfig:
 
     # Miscellaneous
     num_workers: int = 4
+    tie_margin: float = 0.1
+    seed: int = 42
 
 # Pre-defined configs
 FAST_PROTOTYPE = ExperimentConfig(
