@@ -23,7 +23,8 @@ def save_epoch(
 ) -> Path:
     tag = f"epoch-{epoch:04d}_overall-{metrics['overall_acc']:.4f}"
     ep_dir = ckpt_root / tag
-    model.save(str(ep_dir))
+    ep_dir.mkdir(parents=True, exist_ok=True)
+    model.save(str(ep_dir / "model.pth"))  # Save as file inside directory
     (ep_dir / "metrics.json").write_text(json.dumps(metrics, indent=2))
     (out_dir / "LAST").write_text(str(ep_dir))
     return ep_dir
