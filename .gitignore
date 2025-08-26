@@ -120,7 +120,6 @@ dataset_cache/
 wandb/
 outputs/
 checkpoints/
-models/
 logs/
 results/
 
