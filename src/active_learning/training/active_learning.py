@@ -1,7 +1,7 @@
 import os
 import shutil
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import torch
 from datasets import Dataset as HFDataset
@@ -62,199 +62,49 @@ def _move_from_pool_to_seed(out_dir: Path, pool_indices: List[int]) -> None:
     _save_split(remain, out_dir, "pool")
 
 
-def get_device_info(device: str) -> Tuple[bool, bool, int]:
-    """Get CUDA availability and MC chunks."""
-    if not torch.cuda.is_available() or "cpu" in device.lower():
-        return False, False, 2
-
-    # Parse device index from device string
-    device_idx = 0
-    if ":" in device:
-        try:
-            device_idx = int(device.split(":")[-1])
-        except ValueError:
-            device_idx = 0  # Fallback to device 0 if parsing fails
-
-    # Validate device index against available devices
-    if device_idx >= torch.cuda.device_count():
-        device_idx = 0
-
-    # Get GPU properties for memory-based chunking
-    props = torch.cuda.get_device_properties(device_idx)
-    memory_gb = props.total_memory / (1024**3)
-
-    # Determine MC chunks based on memory size
-    if memory_gb >= 20:
-        mc_chunks = 8
-    elif memory_gb >= 10:
-        mc_chunks = 6
-    elif memory_gb >= 6:
-        mc_chunks = 4
-    else:
-        mc_chunks = 2
-
-    # autocast() works on any CUDA GPU, just becomes no-op on older ones
-    return True, True, mc_chunks
-
-
 @torch.no_grad()
 def predict_pool_probs(model, processor, loader, device: str) -> torch.Tensor:
-    """GPU-agnostic deterministic probs per item; returns [N,2]."""
+    """Deterministic pool probabilities; returns [N,2] on CPU."""
     if hasattr(model, "enable_mc_dropout"):
         model.enable_mc_dropout = False
     model.eval()
 
-    all_probs = []
-    use_cuda, use_amp, _ = get_device_info(device)
+    use_amp = torch.cuda.is_available() and device.startswith("cuda")
+    probs_all = []
 
     for batch in tqdm(loader, desc="pool-scan", leave=True):
         txt_in, img0_in, img1_in, _, _ = prepare_inputs(processor, batch, device)
-
-        if use_amp:
-            with torch.amp.autocast(device):
-                t = model.get_text_features(**txt_in)
-                i0 = model.get_image_features(**img0_in)
-                i1 = model.get_image_features(**img1_in)
-                s0, s1 = pairwise_scores(t, i0, i1, model.logit_scale)
-                probs = torch.stack([s0, s1], dim=-1).softmax(-1)  # [B,2]
-        else:
+        with torch.amp.autocast(device_type="cuda", enabled=use_amp):
             t = model.get_text_features(**txt_in)
             i0 = model.get_image_features(**img0_in)
             i1 = model.get_image_features(**img1_in)
             s0, s1 = pairwise_scores(t, i0, i1, model.logit_scale)
             probs = torch.stack([s0, s1], dim=-1).softmax(-1)  # [B,2]
+        probs_all.append(probs)
 
-        all_probs.append(probs)
-
-    # Concatenate on device, then move to CPU once if needed
-    if all_probs:
-        result = torch.cat(all_probs, dim=0)
-        return result.cpu() if use_cuda else result
-    else:
+    if not probs_all:
         return torch.empty(0, 2)
+
+    return torch.cat(probs_all, dim=0).detach().cpu()
 
 
 @torch.no_grad()
 def predict_pool_mc_probs(
     model, processor, loader, device: str, num_samples: int
 ) -> torch.Tensor:
-    """GPU-agnostic MC-Dropout with adaptive parallel sampling."""
-    if hasattr(model, "enable_mc_dropout"):
-        model.enable_mc_dropout = True
-    else:
+    """MC-Dropout via simple sequential passes; returns [T,N,2] on CPU."""
+    if not hasattr(model, "enable_mc_dropout"):
         raise ValueError(
-            "Model must have attribute `enable_mc_dropout` to run MC inference"
+            "Model must have attribute `enable_mc_dropout` for MC inference"
         )
 
+    model.enable_mc_dropout = True
     model.eval()
-    use_cuda, use_amp, mc_chunks = get_device_info(device)
 
-    all_mc_probs = []
-
-    for batch in tqdm(loader, desc="MC-pool-scan", leave=True):
-        txt_in, img0_in, img1_in, _, _ = prepare_inputs(processor, batch, device)
-        batch_size = (
-            txt_in["input_ids"].shape[0] if "input_ids" in txt_in else len(batch)
-        )
-
-        # Parallel MC sampling: batch multiple forward passes together
-        mc_probs_batch = []
-
-        # Process MC samples in chunks
-        samples_per_chunk = min(num_samples, mc_chunks)
-        num_chunks = (num_samples + samples_per_chunk - 1) // samples_per_chunk
-
-        for chunk_idx in range(num_chunks):
-            start_idx = chunk_idx * samples_per_chunk
-            end_idx = min(start_idx + samples_per_chunk, num_samples)
-            chunk_samples = end_idx - start_idx
-
-            # Expand batch for parallel MC sampling
-            try:
-                txt_expanded = {
-                    k: v.repeat(chunk_samples, *[1] * (v.dim() - 1))
-                    for k, v in txt_in.items()
-                }
-                img0_expanded = {
-                    k: v.repeat(chunk_samples, *[1] * (v.dim() - 1))
-                    for k, v in img0_in.items()
-                }
-                img1_expanded = {
-                    k: v.repeat(chunk_samples, *[1] * (v.dim() - 1))
-                    for k, v in img1_in.items()
-                }
-
-                # Single forward pass for multiple MC samples
-                if use_amp:
-                    with torch.amp.autocast(device):
-                        t = model.get_text_features(**txt_expanded)
-                        i0 = model.get_image_features(**img0_expanded)
-                        i1 = model.get_image_features(**img1_expanded)
-                        s0, s1 = pairwise_scores(t, i0, i1, model.logit_scale)
-                        probs = torch.stack([s0, s1], dim=-1).softmax(
-                            -1
-                        )  # [chunk_samples*B, 2]
-                else:
-                    t = model.get_text_features(**txt_expanded)
-                    i0 = model.get_image_features(**img0_expanded)
-                    i1 = model.get_image_features(**img1_expanded)
-                    s0, s1 = pairwise_scores(t, i0, i1, model.logit_scale)
-                    probs = torch.stack([s0, s1], dim=-1).softmax(
-                        -1
-                    )  # [chunk_samples*B, 2]
-
-                # Reshape to [chunk_samples, B, 2]
-                probs = probs.view(chunk_samples, batch_size, 2)
-                mc_probs_batch.append(probs)
-
-            except RuntimeError as e:
-                if "out of memory" in str(e).lower():
-                    # Fallback to sequential processing for this chunk
-                    print(
-                        f"OOM detected, falling back to sequential processing for chunk {chunk_idx}"
-                    )
-                    if use_cuda:
-                        torch.cuda.empty_cache()
-
-                    sequential_probs = []
-                    for _ in range(chunk_samples):
-                        if use_amp:
-                            with torch.amp.autocast(device):
-                                t = model.get_text_features(**txt_in)
-                                i0 = model.get_image_features(**img0_in)
-                                i1 = model.get_image_features(**img1_in)
-                                s0, s1 = pairwise_scores(t, i0, i1, model.logit_scale)
-                                probs = torch.stack([s0, s1], dim=-1).softmax(
-                                    -1
-                                )  # [B, 2]
-                        else:
-                            t = model.get_text_features(**txt_in)
-                            i0 = model.get_image_features(**img0_in)
-                            i1 = model.get_image_features(**img1_in)
-                            s0, s1 = pairwise_scores(t, i0, i1, model.logit_scale)
-                            probs = torch.stack([s0, s1], dim=-1).softmax(-1)  # [B, 2]
-                        sequential_probs.append(probs.unsqueeze(0))  # [1, B, 2]
-
-                    chunk_probs = torch.cat(
-                        sequential_probs, dim=0
-                    )  # [chunk_samples, B, 2]
-                    mc_probs_batch.append(chunk_probs)
-                else:
-                    raise e
-
-        # Concatenate chunks: [num_samples, B, 2]
-        batch_mc_probs = torch.cat(mc_probs_batch, dim=0)
-        all_mc_probs.append(batch_mc_probs.cpu())  # Move to CPU only once per batch
-
-        # Clear GPU cache periodically (only if using CUDA)
-        if use_cuda:
-            torch.cuda.empty_cache()
-
-    if not all_mc_probs:
-        return torch.empty(num_samples, 0, 2)
-
-    # Concatenate along batch dimension: [num_samples, total_N, 2]
-    return torch.cat(all_mc_probs, dim=1)
+    samples = [
+        predict_pool_probs(model, processor, loader, device) for _ in range(num_samples)
+    ]
+    return torch.stack(samples, dim=0)  # [T,N,2]
 
 
 def al_iteration(
@@ -354,6 +204,11 @@ def run_active_learning(
     out_dir = Path(out_dir)
     device = build_device()
     print(f"Running on device {device}")
+
+    if torch.cuda.is_available():
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.set_float32_matmul_precision("high")
 
     assert mc_dropout_p is not None
     model = build_model(

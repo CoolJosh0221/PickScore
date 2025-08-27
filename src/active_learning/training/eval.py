@@ -12,22 +12,23 @@ def evaluate(
 ) -> Dict[str, float]:
     model.eval()
     tracker = PrefMetricTracker(tie_margin)
-    loss_sum = 0.0
-    batches = 0
+    loss_sum, batches = 0.0, 0
     for b in tqdm(loader, desc="valid", leave=False):
-        caps = b["caption"]
-        imgs0 = b["image_0"]
-        imgs1 = b["image_1"]
-        y0 = b["label_0"].to(device)
-        y1 = b["label_1"].to(device)
-        txt_in = processor(
-            text=caps, padding=True, truncation=True, max_length=77, return_tensors="pt"
-        ).to(device)
-        img0_in = processor(images=imgs0, return_tensors="pt").to(device)
-        img1_in = processor(images=imgs1, return_tensors="pt").to(device)
-        t = model.get_text_features(**txt_in)
-        i0 = model.get_image_features(**img0_in)
-        i1 = model.get_image_features(**img1_in)
+        imgs0 = b["image_0"].to(device, non_blocking=True)
+        imgs1 = b["image_1"].to(device, non_blocking=True)
+        y0 = b["label_0"].to(device, non_blocking=True)
+        y1 = b["label_1"].to(device, non_blocking=True)
+        txt = processor(
+            text=b["caption"],
+            padding=True,
+            truncation=True,
+            max_length=77,
+            return_tensors="pt",
+        )
+        txt = {k: v.to(device, non_blocking=True) for k, v in txt.items()}
+        t = model.get_text_features(**txt)
+        i0 = model.get_image_features(pixel_values=imgs0)
+        i1 = model.get_image_features(pixel_values=imgs1)
         s0, s1 = pairwise_scores(t, i0, i1, model.logit_scale)
         loss = soft_ce_from_pairs(s0, s1, y0, y1)
         loss_sum += loss.item()

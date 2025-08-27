@@ -13,40 +13,17 @@ from .eval import evaluate
 from .utils import set_seed, make_run_dir, save_epoch, save_best_pointer
 
 
-def get_device_info(device: str) -> Tuple[bool, bool]:
-    """Get CUDA availability and AMP support."""
-    if not torch.cuda.is_available() or "cpu" in device.lower():
-        return False, False
-
-    # Parse device index from device string
-    device_idx = 0
-    if ":" in device:
-        try:
-            device_idx = int(device.split(":")[-1])
-        except ValueError:
-            device_idx = 0  # Fallback to device 0 if parsing fails
-
-    # Validate device index against available devices
-    if device_idx >= torch.cuda.device_count():
-        device_idx = 0
-
-    # AMP works on any CUDA GPU
-    return True, True
-
-
 def build_device() -> str:
     return "cuda" if torch.cuda.is_available() else "cpu"
 
 
 def build_model(model_class, device: str, **kwargs) -> BaseModel:
-    """Use same constructor shape as your current CLIPModel"""
     assert issubclass(model_class, BaseModel)
     return model_class(**kwargs).to(device)
 
 
 def build_processor(pretrained_model_name_or_path: str) -> CLIPProcessor:
-    """Use HF processor to tokenize text and preprocess images"""
-    return CLIPProcessor.from_pretrained(pretrained_model_name_or_path, use_fast=False)
+    return CLIPProcessor.from_pretrained(pretrained_model_name_or_path, use_fast=True)
 
 
 def build_optimizer(
@@ -56,9 +33,7 @@ def build_optimizer(
 
 
 def build_scaler(device: str) -> torch.amp.GradScaler:
-    """AMP scaler; no effects on CPU"""
-    use_cuda, use_amp = get_device_info(device)
-    return torch.amp.GradScaler(device=device, enabled=use_cuda)
+    return torch.amp.GradScaler(device=device)
 
 
 def build_loaders(out_dir: Path, batch_size: int, num_workers: int) -> Tuple[Any, Any]:
@@ -68,30 +43,46 @@ def build_loaders(out_dir: Path, batch_size: int, num_workers: int) -> Tuple[Any
 
 
 def prepare_inputs(processor: CLIPProcessor, batch: Dict[str, Any], device: str):
-    """Select essential features from data samples"""
+    """
+    Make model-ready inputs on the right device.
+    Images may be tensors (already collated) or PILs; handle both.
+    """
     caps = batch["caption"]
     imgs0 = batch["image_0"]
     imgs1 = batch["image_1"]
-    y0 = batch["label_0"].to(device)
-    y1 = batch["label_1"].to(device)
+    y0 = batch["label_0"].to(device, non_blocking=True)
+    y1 = batch["label_1"].to(device, non_blocking=True)
 
-    txt_in = processor(
+    # Text -> token ids on device
+    txt = processor(
         text=caps, padding=True, truncation=True, max_length=77, return_tensors="pt"
-    ).to(device)
-    img0_in = processor(images=imgs0, return_tensors="pt").to(device)
-    img1_in = processor(images=imgs1, return_tensors="pt").to(device)
-    return txt_in, img0_in, img1_in, y0, y1
+    )
+    txt = {k: v.to(device, non_blocking=True) for k, v in txt.items()}
+
+    # Images -> dicts compatible with HF CLIP .get_image_features(**image_inputs)
+    if isinstance(imgs0, torch.Tensor):
+        img0_in = {"pixel_values": imgs0.to(device, non_blocking=True)}
+    else:
+        img0_in = processor(images=imgs0, return_tensors="pt")
+        img0_in = {k: v.to(device, non_blocking=True) for k, v in img0_in.items()}
+
+    if isinstance(imgs1, torch.Tensor):
+        img1_in = {"pixel_values": imgs1.to(device, non_blocking=True)}
+    else:
+        img1_in = processor(images=imgs1, return_tensors="pt")
+        img1_in = {k: v.to(device, non_blocking=True) for k, v in img1_in.items()}
+
+    return txt, img0_in, img1_in, y0, y1
 
 
 def loss_on_batch(
     model: CLIPModel, processor: CLIPProcessor, batch: Dict[str, Any], device: str
 ) -> torch.Tensor:
-    """Forward one batch and return the soft CE loss"""
-    txt_in, img0_in, img1_in, y0, y1 = prepare_inputs(processor, batch, device)
-    t = model.get_text_features(**txt_in)
+    txt, img0_in, img1_in, y0, y1 = prepare_inputs(processor, batch, device)
+    t = model.get_text_features(**txt)
     i0 = model.get_image_features(**img0_in)
     i1 = model.get_image_features(**img1_in)
-    s0, s1 = pairwise_scores(t, i0, i1, model.logit_scale)  # uses trainable logit scale
+    s0, s1 = pairwise_scores(t, i0, i1, model.logit_scale)
     return soft_ce_from_pairs(s0, s1, y0, y1)
 
 
@@ -104,55 +95,36 @@ def train_one_epoch(
     device: str,
     epoch: int,
 ) -> float:
-    # Optimized train loop with better GPU utilization
     model.train()
     running, steps = 0.0, 0
-    use_cuda, use_amp = get_device_info(device)
 
-    # Enable optimizations for training
-    if use_cuda:
-        torch.backends.cudnn.benchmark = True  # Optimize for consistent input sizes
+    if torch.cuda.is_available():
+        torch.backends.cudnn.benchmark = True
+        torch.backends.cuda.matmul.allow_tf32 = True
+        torch.set_float32_matmul_precision("high")
 
     for batch in tqdm(loader, desc=f"epoch {epoch} [train]", leave=True):
-        optimizer.zero_grad(set_to_none=True)  # More efficient than zero_grad()
-
-        if use_amp:
-            with torch.amp.autocast(device_type="cuda"):  # Explicit device type
-                loss = loss_on_batch(model, processor, batch, device)
-        else:
+        optimizer.zero_grad(set_to_none=True)
+        with torch.amp.autocast(device_type=device):
             loss = loss_on_batch(model, processor, batch, device)
-
         scaler.scale(loss).backward()
         scaler.step(optimizer)
         scaler.update()
-
         steps += 1
         running += loss.item()
-
-        # Periodic memory cleanup to prevent fragmentation
-        if use_cuda and steps % 50 == 0:
-            torch.cuda.empty_cache()
 
     return running / max(steps, 1)
 
 
 def validate_epoch(
-    model: BaseModel, processor: CLIPProcessor, loader, device: str, tie_margin: float
+    model: BaseModel,
+    processor: CLIPProcessor,
+    loader,
+    device: str,
+    tie_margin: float,
 ) -> Dict[str, float]:
-    """Optimized validation with memory management"""
-    use_cuda, _ = get_device_info(device)
-
-    # Clear cache before validation
-    if use_cuda:
-        torch.cuda.empty_cache()
-
-    result = evaluate(model, processor, loader, device, tie_margin=tie_margin)
-
-    # Clear cache after validation
-    if use_cuda:
-        torch.cuda.empty_cache()
-
-    return result
+    """Delegate to evaluate()."""
+    return evaluate(model, processor, loader, device, tie_margin=tie_margin)
 
 
 def setup_training(
@@ -165,32 +137,9 @@ def setup_training(
     weight_decay: float,
     seed: int,
 ):
-    """Build all state needed by training with GPU optimization info"""
     set_seed(seed)
     out_dir = Path(out_dir)
     device = build_device()
-
-    # Print GPU optimization info
-    use_cuda, use_amp = get_device_info(device)
-    if use_cuda:
-        try:
-            device_idx = (
-                0
-                if torch.cuda.device_count() == 1
-                else int(device.split(":")[-1])
-                if ":" in device
-                else 0
-            )
-            props = torch.cuda.get_device_properties(device_idx)
-            print(
-                f"GPU: {props.name} ({props.total_memory / (1024**3):.1f}GB VRAM, Compute {props.major}.{props.minor})"
-            )
-            print(f"AMP enabled: {use_amp}")
-        except:
-            print(f"CUDA device detected: {device}")
-    else:
-        print("Running on CPU")
-
     model = build_model(
         CLIPModel, device, pretrained_model_name_or_path=pretrained_model_name_or_path
     )
@@ -198,7 +147,6 @@ def setup_training(
     optimizer = build_optimizer(model, learning_rate, weight_decay)
     scaler = build_scaler(device)
     train_loader, valid_loader = build_loaders(out_dir, train_batch_size, num_workers)
-
     return {
         "out_dir": out_dir,
         "device": device,
@@ -223,7 +171,7 @@ def fit(
     tie_margin: float = 0.05,
     seed: int = 42,
 ) -> None:
-    """Full training orchestration with GPU optimizations"""
+    """Simple training driver used outside AL."""
     state = setup_training(
         out_dir,
         pretrained_model_name_or_path=pretrained_model_name_or_path,
@@ -264,10 +212,6 @@ def fit(
             best_path = ep_dir
             save_best_pointer(state["out_dir"], best_path)
 
-    # Fixed model saving - save to files, not directories
-    last_dir = state["out_dir"] / "last"
-    last_dir.mkdir(parents=True, exist_ok=True)
-    model.save(str(last_dir / "model.pth"))
-
+    model.save(str(state["out_dir"] / "last"))
     if best_path is not None:
-        model.save(str(best_path / "model.pth"))
+        model.save(str(best_path))

@@ -1,7 +1,9 @@
 """
 Experiment configurations for active learning framework.
 """
+
 from attrs import define
+
 
 @define
 class ExperimentConfig:
@@ -9,73 +11,96 @@ class ExperimentConfig:
 
     # Data formats
     image_size: int = 224
-    
+
     # Data
-    seed_size: int = 200
-    pool_size: int = 10000
+    seed_size: int = 500
+    pool_size: int = 20000
     test_size: int = 2000
     random_seed: int = 42
-    
+
     # Model
     pretrained_model_name_or_path: str = "openai/clip-vit-base-patch32"
-    mc_dropout_p: float = 0.1
-    
+    mc_dropout_p: float = 0.12
+
     # Training
-    train_epochs: int = 3
+    train_epochs: int = 2
     learning_rate: float = 1e-5
     weight_decay: float = 1e-4
-    train_batch_size: int = 16
-    eval_batch_size: int = 32
-    
+    train_batch_size: int = 24
+    eval_batch_size: int = 48
+
     # Active learning
     acquisition_strategy: str = "bald"
-    al_iterations: int = 10
-    acquisition_batch_size: int = 100
+    al_iterations: int = 12
+    acquisition_batch_size: int = 150
     num_mc_samples: int = 20
-    
+
     # Experiment
-    wandb_project: str = "active-learning"
-    eval_with_mc_dropout: bool = False
+    wandb_project: str = "clip-active-learning"
+    eval_with_mc_dropout: bool = True
 
     # Miscellaneous
     num_workers: int = 4
-    tie_margin: float = 0.25
+    tie_margin: float = 0.15
     seed: int = 42
 
-# Pre-defined configs
+
+# Pre-defined configurations
+
 FAST_PROTOTYPE = ExperimentConfig(
     seed_size=100,
-    pool_size=5000,
-    test_size=1000,
-    train_epochs=2,
+    pool_size=2000,
+    test_size=500,
+    train_epochs=1,
     al_iterations=5,
     acquisition_batch_size=50,
     num_mc_samples=10,
+    mc_dropout_p=0.1,
+    train_batch_size=16,
+    eval_batch_size=32,
 )
 
-SMALL_SCALE = ExperimentConfig()
+SMALL_SCALE = ExperimentConfig(
+    seed_size=300,
+    pool_size=8000,
+    test_size=1500,
+    train_epochs=2,
+    al_iterations=8,
+    acquisition_batch_size=100,
+    num_mc_samples=15,
+    mc_dropout_p=0.11,
+    train_batch_size=20,
+    eval_batch_size=40,
+    learning_rate=1.2e-5,
+)
 
 MEDIUM_SCALE = ExperimentConfig(
-    seed_size=500,
-    pool_size=25000,
-    test_size=3000,
-    train_epochs=4,
+    seed_size=800,
+    pool_size=30000,
+    test_size=2500,
+    train_epochs=3,
     al_iterations=15,
-    mc_dropout_p=0.15,
+    acquisition_batch_size=200,
     num_mc_samples=25,
+    mc_dropout_p=0.15,
     train_batch_size=32,
-    eval_batch_size=64
+    eval_batch_size=64,
+    learning_rate=8e-6,
+    weight_decay=1.5e-4,
 )
 
 LARGE_SCALE = ExperimentConfig(
-    seed_size=1000,
-    pool_size=50000,
-    test_size=5000,
-    train_epochs=5,
-    al_iterations=20,
-    mc_dropout_p=0.2,
+    seed_size=1500,
+    pool_size=75000,
+    test_size=4000,
+    train_epochs=4,
+    al_iterations=25,
+    acquisition_batch_size=300,
     num_mc_samples=30,
-    train_batch_size=64,
-    eval_batch_size=128,
-    learning_rate=5e-5
+    mc_dropout_p=0.18,
+    train_batch_size=40,
+    eval_batch_size=80,
+    learning_rate=5e-6,
+    weight_decay=2e-4,
+    tie_margin=0.1,
 )
