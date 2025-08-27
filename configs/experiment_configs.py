@@ -13,6 +13,7 @@ class ExperimentConfig:
     image_size: int = 224
 
     # Data
+    dataset_name: str = "pickapic-anonymous/pickapic_v1"
     seed_size: int = 500
     pool_size: int = 20000
     test_size: int = 2000
@@ -30,13 +31,12 @@ class ExperimentConfig:
     eval_batch_size: int = 48
 
     # Active learning
-    acquisition_strategy: str = "bald"
     al_iterations: int = 12
     acquisition_batch_size: int = 150
     num_mc_samples: int = 20
 
     # Experiment
-    wandb_project: str = "clip-active-learning"
+    wandb_project: str = "pickapic-active-learning"
     eval_with_mc_dropout: bool = True
 
     # Miscellaneous

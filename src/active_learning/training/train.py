@@ -23,7 +23,7 @@ def build_model(model_class, device: str, **kwargs) -> BaseModel:
 
 
 def build_processor(pretrained_model_name_or_path: str) -> CLIPProcessor:
-    return CLIPProcessor.from_pretrained(pretrained_model_name_or_path, use_fast=True)
+    return CLIPProcessor.from_pretrained(pretrained_model_name_or_path, use_fast=False)
 
 
 def build_optimizer(

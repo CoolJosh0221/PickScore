@@ -4,16 +4,19 @@ from pathlib import Path
 from typing import Mapping
 from datasets import load_dataset, Dataset as HFDataset
 from datasets.iterable_dataset import IterableDataset
+from datasets.arrow_writer import ArrowWriter
+import pyarrow as pa  # Verify dep
 
 
 def sample_and_save(
     out_root: str,
     *,
     dataset_name: str = "pickapic-anonymous/pickapic_v1",
-    split_sizes: Mapping[str, int],  # Changed from split_fractions to split_sizes
+    split_sizes: Mapping[str, int],
     split: str = "train",
     seed: int = 42,
     shuffle_buffer: int = 1000,
+    chunk_size: int = 4096,  # Arrow writer batch size
 ) -> Path:
     """
     Sample and save dataset splits by exact sample counts.
@@ -26,6 +29,7 @@ def sample_and_save(
         split: Source split to sample from
         seed: Random seed for reproducibility
         shuffle_buffer: Buffer size for shuffling
+        chunk_size: Batch size for ArrowWriter
 
     Returns:
         Path to output directory
@@ -40,42 +44,46 @@ def sample_and_save(
     stream = stream.filter(lambda x: x["are_different"])
     stream = stream.shuffle(buffer_size=shuffle_buffer, seed=seed)
 
-    keys = list(split_sizes.keys())
+    keys = [k for k, n in split_sizes.items() if n > 0]
     taken = {k: 0 for k in keys}
-    buffers = {k: [] for k in keys}
 
-    # Calculate total samples needed
-    total_samples = sum(split_sizes.values())
+    features = stream.features  # required for ArrowWriter
 
-    for ex in stream:
-        # Check if we've collected all samples
-        if sum(taken.values()) >= total_samples:
-            break
-
-        # Find splits that haven't reached their target size
-        available_splits = [k for k in keys if taken[k] < split_sizes[k]]
-
-        if not available_splits:
-            break  # All splits are full
-
-        # Weight by remaining samples needed for balanced distribution
-        remaining = {k: split_sizes[k] - taken[k] for k in available_splits}
-        weights = list(remaining.values())
-
-        # Choose split based on remaining samples needed
-        s = random.choices(available_splits, weights=weights, k=1)[0]
-        buffers[s].append(ex)
-        taken[s] += 1
-
-    # Save splits to disk
+    # One ArrowWriter per split
+    writers = {}
     for k in keys:
         split_dir = out_dir / k
         split_dir.mkdir(parents=True, exist_ok=True)
+        writers[k] = ArrowWriter(
+            path=str(split_dir / f"{k}.arrow"),
+            features=features,
+            writer_batch_size=chunk_size,
+        )
 
-        if buffers[k]:
-            HFDataset.from_list(buffers[k]).save_to_disk(str(split_dir))
+    # Fill splits sequentially since the stream is already shuffled
+    it = iter(stream)
+    try:
+        for k in keys:
+            target = split_sizes[k]
+            for _ in range(target):
+                ex = next(it)
+                writers[k].write(ex)
+                taken[k] += 1
+    except StopIteration:
+        pass  # source exhausted
 
-        # Save manifest with actual and target counts
+    # Save dataset to disk
+    for k in keys:
+        split_dir = out_dir / k
+        writers[k].finalize()
+        ds = HFDataset.from_file(str(split_dir / f"{k}.arrow"))
+        ds.save_to_disk(str(split_dir))
+        try:
+            (split_dir / f"{k}.arrow").unlink()
+        except Exception:
+            pass
+
+        # Per-split manifest
         (split_dir / "manifest.json").write_text(
             json.dumps(
                 {
@@ -83,6 +91,7 @@ def sample_and_save(
                     "samples": taken[k],
                     "target": split_sizes[k],
                     "completed": taken[k] == split_sizes[k],
+                    "format": "hf_save_to_disk",
                 },
                 indent=2,
             ),
@@ -93,7 +102,7 @@ def sample_and_save(
     (out_dir / "summary.json").write_text(
         json.dumps(
             {
-                "total_requested": total_samples,
+                "total_requested": sum(split_sizes.values()),
                 "total_collected": sum(taken.values()),
                 "splits": {
                     k: {"collected": taken[k], "target": split_sizes[k]} for k in keys
