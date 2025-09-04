@@ -157,3 +157,18 @@ def create_standard_splits(
         split_sizes={"train": train_size, "val": val_size, "test": test_size},
         seed=seed,
     )
+
+
+def create_independent_test_set(
+    out_root: str,
+    *,
+    dataset_name: str = "pickapic-anonymous/pickapic_v1",
+    size: int = 3000,
+    seed: int = 42,
+):
+    return sample_and_save(
+        out_root,
+        dataset_name=dataset_name,
+        split_sizes={"test": size},
+        seed=seed,
+    )
