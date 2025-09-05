@@ -32,6 +32,14 @@ def _entropy(p: torch.Tensor) -> torch.Tensor:
     return -(p * p.log()).sum(dim=-1)
 
 
+class RandomSampling(Acquisition):
+    def score(
+        self, *, mean_probs: torch.Tensor, mc_probs: Optional[torch.Tensor] = None
+    ) -> torch.Tensor:
+        """Return random scores for each sample."""
+        return torch.rand(mean_probs.size(0), device=mean_probs.device)
+
+
 class BALD(Acquisition):
     """Bayesian Active Learning by Disagreement: H[mean] - mean_t H[p_t]"""
 
@@ -63,27 +71,6 @@ class LeastConfidence(Acquisition):
         return 1.0 - mean_probs.max(dim=-1).values
 
 
-class Margin(Acquisition):
-    """Uncertainty as negative margin between top-2 class probabilities."""
-
-    def score(
-        self, *, mean_probs: torch.Tensor, mc_probs: Optional[torch.Tensor] = None
-    ) -> torch.Tensor:
-        top2 = torch.topk(mean_probs, k=2, dim=-1).values
-        return (top2[:, 0] - top2[:, 1]).neg()
-
-
-class TieCloseness(Acquisition):
-    """For binary classification: uncertainty when probabilities are close to 0.5."""
-
-    def score(
-        self, *, mean_probs: torch.Tensor, mc_probs: Optional[torch.Tensor] = None
-    ) -> torch.Tensor:
-        if mean_probs.size(-1) != 2:
-            raise ValueError("TieCloseness expects binary classification (K=2)")
-        return (mean_probs[:, 0] - 0.5).abs().neg()
-
-
 class CoresetKCenter(Acquisition):
     """K-center coreset method: select samples farthest from current labeled set."""
 
@@ -113,11 +100,10 @@ class CoresetKCenter(Acquisition):
 
 
 _REGISTRY: Dict[str, Type[Acquisition]] = {
+    "random": RandomSampling,
     "bald": BALD,
     "entropy": EntropyUncertainty,
     "least_confidence": LeastConfidence,
-    "margin": Margin,
-    "tie": TieCloseness,
     "coreset_kcenter": CoresetKCenter,
 }
 
