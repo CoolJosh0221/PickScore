@@ -2,7 +2,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 from .datasets import PreferenceDataset
-from .collate import collate_fn
+from .collate import collate_fn, set_processor
 
 
 def create_dataloader(
@@ -10,9 +10,11 @@ def create_dataloader(
     split: str,
     batch_size: int,
     num_workers: int,
+    processor,
     shuffle: bool,
 ) -> DataLoader:
     ds = PreferenceDataset(Path(data_dir) / split)
+    set_processor(processor)
     return DataLoader(
         ds,
         batch_size=batch_size,

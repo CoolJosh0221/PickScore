@@ -1,29 +1,38 @@
+import random
+import sys
 from pathlib import Path
+
+import numpy as np
 import torch
 import torch.nn.functional as F
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, CLIPImageProcessorFast
 
 from active_learning.data.loaders import create_dataloader
 from active_learning.data.sampling import create_independent_test_set
 from active_learning.models.base_model import BaseModel
 from active_learning.models.model_mcdo import MCDropoutCLIPModel
 
+seed: int = 45510
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-out_dir = Path("test_dataset")
+random.seed(seed)
+torch.manual_seed(seed)
+np.random.seed(seed)
+
+out_dir = Path("test_dataset/")
 out_dir.mkdir(parents=True, exist_ok=True)
 
-create_independent_test_set(
-    str(out_dir),
-    dataset_name="pickapic-anonymous/pickapic_v1",
-    size=500,
-    seed=45510,
-)
-
-pretrained_models = [
-    "laion/CLIP-ViT-H-14-laion2B-s32B-b79K",
-    "openai/clip-vit-base-patch32",
-]
+if not any(out_dir.iterdir()):
+    # Saving dataset to disk
+    create_independent_test_set(
+        str(out_dir),
+        dataset_name="pickapic-anonymous/pickapic_v1",
+        size=500,
+        seed=seed,
+    )
+    print(f"Dataset created in {out_dir}")
+else:
+    print("Dataset already exists, skipping...")
 
 
 @torch.no_grad()
@@ -44,25 +53,35 @@ def snap_prediction(probs: torch.Tensor, tie_margin: float) -> torch.Tensor:
     return out
 
 
-tie_margin = 0.1
+tie_margin = 0.05
+
+pretrained_models = [
+    "yuvalkirstain/PickScore_v1",
+    "openai/clip-vit-base-patch32",
+]
 
 for pretrained_model in pretrained_models:
-    tokenizer = AutoTokenizer.from_pretrained(pretrained_model)
-
     model: BaseModel = MCDropoutCLIPModel(
-        pretrained_model_name_or_path=pretrained_model
+        pretrained_model_name_or_path=pretrained_model,
+        mc_dropout_p=0.0,
     )
     model.eval().to(device)
+
+    processor = CLIPImageProcessorFast.from_pretrained(pretrained_model)
 
     dl = create_dataloader(
         out_dir,
         split="test",
         batch_size=48,
         num_workers=4,
+        processor=processor,
         shuffle=False,
     )
 
-    for batch in dl:
+    tokenizer = AutoTokenizer.from_pretrained(pretrained_model)
+
+    total_matches, total_samples = 0, 0
+    for i, batch in enumerate(dl):
         img0 = batch["image_0"].to(device)  # [B,C,H,W]
         img1 = batch["image_1"].to(device)  # [B,C,H,W]
         captions = batch["caption"]
@@ -101,6 +120,17 @@ for pretrained_model in pretrained_models:
         labels = torch.stack([batch["label_0"], batch["label_1"]], dim=1).to(device)
 
         matches = (preds == labels).all(dim=1)  # [B]
+
+        total_matches += matches.sum().item()
+        sys.stderr.write(f"{total_matches} ")
+        total_samples += matches.shape[0]
+        sys.stderr.write(f"{total_samples}\n")
+        sys.stderr.flush()
+
         acc = matches.float().mean().item()
 
-        print(f"Batch accuracy: {acc}")
+        print(f"Batch {i}'s accuracy: {acc:.2%}")
+
+    print(
+        f"Overall accuracy for model {pretrained_model}: {(total_matches / total_samples):.2%}"
+    )

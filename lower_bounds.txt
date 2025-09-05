@@ -1,0 +1,25 @@
+Dataset already exists, skipping...
+Batch 0's accuracy: 77.08%
+Batch 1's accuracy: 68.75%
+Batch 2's accuracy: 62.50%
+Batch 3's accuracy: 72.92%
+Batch 4's accuracy: 64.58%
+Batch 5's accuracy: 79.17%
+Batch 6's accuracy: 70.83%
+Batch 7's accuracy: 72.92%
+Batch 8's accuracy: 72.92%
+Batch 9's accuracy: 72.92%
+Batch 10's accuracy: 50.00%
+Overall accuracy for model yuvalkirstain/PickScore_v1: 70.60%
+Batch 0's accuracy: 54.17%
+Batch 1's accuracy: 47.92%
+Batch 2's accuracy: 50.00%
+Batch 3's accuracy: 54.17%
+Batch 4's accuracy: 41.67%
+Batch 5's accuracy: 60.42%
+Batch 6's accuracy: 56.25%
+Batch 7's accuracy: 54.17%
+Batch 8's accuracy: 60.42%
+Batch 9's accuracy: 54.17%
+Batch 10's accuracy: 35.00%
+Overall accuracy for model openai/clip-vit-base-patch32: 52.60%

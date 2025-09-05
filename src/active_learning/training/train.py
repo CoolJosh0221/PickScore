@@ -36,9 +36,9 @@ def build_scaler(device: str) -> torch.amp.GradScaler:
     return torch.amp.GradScaler(device=device)
 
 
-def build_loaders(out_dir: Path, batch_size: int, num_workers: int) -> Tuple[Any, Any]:
-    train_loader = create_dataloader(out_dir, "train", batch_size, num_workers, True)
-    valid_loader = create_dataloader(out_dir, "valid", batch_size, num_workers, False)
+def build_loaders(out_dir: Path, batch_size: int, num_workers: int, processor) -> Tuple[Any, Any]:
+    train_loader = create_dataloader(data_dir=out_dir, split="train", batch_size=batch_size, num_workers=num_workers, processor=processor, shuffle=True)
+    valid_loader = create_dataloader(data_dir=out_dir, split="valid", batch_size=batch_size, num_workers=num_workers, processor=processor, shuffle=False)
     return train_loader, valid_loader
 
 
