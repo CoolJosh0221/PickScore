@@ -13,7 +13,7 @@ def set_seed(seed: int) -> None:
 
 def make_run_dir(base: Path) -> Path:
     run_id = datetime.now().strftime("%Y%m%d-%H%M%S")
-    ckpt_root = (base / "checkpoints" / run_id).resolve()
+    ckpt_root = (base / run_id).resolve()
     ckpt_root.mkdir(parents=True, exist_ok=True)
     return ckpt_root
 

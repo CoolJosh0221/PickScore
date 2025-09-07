@@ -36,6 +36,9 @@ def sample_and_save(
     out_dir = Path(out_root)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    if any(out_dir.iterdir()):
+        print(f"Dataset already exists at {out_dir}, skipping...")
+
     # Load and prepare streaming dataset
     stream: IterableDataset = load_dataset(dataset_name, split=split, streaming=True)  # type: ignore
     stream = stream.filter(lambda x: x["are_different"])

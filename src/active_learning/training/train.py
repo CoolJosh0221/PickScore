@@ -36,9 +36,25 @@ def build_scaler(device: str) -> torch.amp.GradScaler:
     return torch.amp.GradScaler(device=device)
 
 
-def build_loaders(out_dir: Path, batch_size: int, num_workers: int, processor) -> Tuple[Any, Any]:
-    train_loader = create_dataloader(data_dir=out_dir, split="train", batch_size=batch_size, num_workers=num_workers, processor=processor, shuffle=True)
-    valid_loader = create_dataloader(data_dir=out_dir, split="valid", batch_size=batch_size, num_workers=num_workers, processor=processor, shuffle=False)
+def build_loaders(
+    out_dir: Path, batch_size: int, num_workers: int, processor
+) -> Tuple[Any, Any]:
+    train_loader = create_dataloader(
+        data_dir=out_dir,
+        split="train",
+        batch_size=batch_size,
+        num_workers=num_workers,
+        processor=processor,
+        shuffle=True,
+    )
+    valid_loader = create_dataloader(
+        data_dir=out_dir,
+        split="valid",
+        batch_size=batch_size,
+        num_workers=num_workers,
+        processor=processor,
+        shuffle=False,
+    )
     return train_loader, valid_loader
 
 
@@ -129,6 +145,7 @@ def validate_epoch(
 
 def setup_training(
     out_dir: Path,
+    checkpoint_dir: Path,
     *,
     pretrained_model_name_or_path: str,
     train_batch_size: int,
@@ -149,6 +166,7 @@ def setup_training(
     train_loader, valid_loader = build_loaders(out_dir, train_batch_size, num_workers)
     return {
         "out_dir": out_dir,
+        "checkpoint_dir": checkpoint_dir,
         "device": device,
         "model": model,
         "processor": processor,
@@ -159,59 +177,61 @@ def setup_training(
     }
 
 
-def fit(
-    out_dir: Path,
-    *,
-    pretrained_model_name_or_path: str,
-    train_batch_size: int,
-    num_workers: int,
-    train_epochs: int,
-    learning_rate: float,
-    weight_decay: float,
-    tie_margin: float = 0.05,
-    seed: int = 42,
-) -> None:
-    """Simple training driver used outside AL."""
-    state = setup_training(
-        out_dir,
-        pretrained_model_name_or_path=pretrained_model_name_or_path,
-        train_batch_size=train_batch_size,
-        num_workers=num_workers,
-        learning_rate=learning_rate,
-        weight_decay=weight_decay,
-        seed=seed,
-    )
+# def fit(
+#     out_dir: Path,
+#     checkpoint_dir: Path,
+#     *,
+#     pretrained_model_name_or_path: str,
+#     train_batch_size: int,
+#     num_workers: int,
+#     train_epochs: int,
+#     learning_rate: float,
+#     weight_decay: float,
+#     tie_margin: float = 0.05,
+#     seed: int = 42,
+# ) -> None:
+#     """Simple training driver used outside AL."""
+#     state = setup_training(
+#         out_dir,
+#         checkpoint_dir,
+#         pretrained_model_name_or_path=pretrained_model_name_or_path,
+#         train_batch_size=train_batch_size,
+#         num_workers=num_workers,
+#         learning_rate=learning_rate,
+#         weight_decay=weight_decay,
+#         seed=seed,
+#     )
 
-    device = state["device"]
-    model = state["model"]
-    processor = state["processor"]
-    optimizer = state["optimizer"]
-    scaler = state["scaler"]
-    train_loader = state["train_loader"]
-    valid_loader = state["valid_loader"]
+#     device = state["device"]
+#     model = state["model"]
+#     processor = state["processor"]
+#     optimizer = state["optimizer"]
+#     scaler = state["scaler"]
+#     train_loader = state["train_loader"]
+#     valid_loader = state["valid_loader"]
 
-    print(f"Running on device {device}")
-    print("Setup finished")
+#     print(f"Running on device {device}")
+#     print("Setup finished")
 
-    ckpt_root = make_run_dir(state["out_dir"])
-    best_overall = -1.0
-    best_path = None
+#     ckpt_root = make_run_dir(state["checkpoint_dir"])
+#     best_overall = -1.0
+#     best_path = None
 
-    for epoch in range(1, train_epochs + 1):
-        _ = train_one_epoch(
-            model, processor, train_loader, optimizer, scaler, device, epoch
-        )
-        val = validate_epoch(model, processor, valid_loader, device, tie_margin)
-        print(
-            f"epoch {epoch} | val_loss {val['val_loss']:.4f} | "
-            f"pref_acc {val['pref_acc']:.4f} | tie_acc {val['tie_acc']:.4f} | overall {val['overall_acc']:.4f}"
-        )
-        ep_dir = save_epoch(model, state["out_dir"], ckpt_root, epoch, val)
-        if val["overall_acc"] > best_overall:
-            best_overall = val["overall_acc"]
-            best_path = ep_dir
-            save_best_pointer(state["out_dir"], best_path)
+#     for epoch in range(1, train_epochs + 1):
+#         _ = train_one_epoch(
+#             model, processor, train_loader, optimizer, scaler, device, epoch
+#         )
+#         val = validate_epoch(model, processor, valid_loader, device, tie_margin)
+#         print(
+#             f"epoch {epoch} | val_loss {val['val_loss']:.4f} | "
+#             f"pref_acc {val['pref_acc']:.4f} | tie_acc {val['tie_acc']:.4f} | overall {val['overall_acc']:.4f}"
+#         )
+#         ep_dir = save_epoch(model, state["checkpoint_dir"], ckpt_root, epoch, val)
+#         if val["overall_acc"] > best_overall:
+#             best_overall = val["overall_acc"]
+#             best_path = ep_dir
+#             save_best_pointer(state["checkpoint_dir"], best_path)
 
-    model.save(str(state["out_dir"] / "last"))
-    if best_path is not None:
-        model.save(str(best_path))
+#     model.save(str(state["checkpoint_dir"] / "last"))
+#     if best_path is not None:
+#         model.save(str(best_path))
