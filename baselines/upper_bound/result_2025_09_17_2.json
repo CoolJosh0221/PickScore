@@ -1,0 +1,300 @@
+{
+    "timestamp": "2025-09-17T14:46:43.265255",
+    "seed": 45510,
+    "tie_margin": 0.1,
+    "device": "cuda",
+    "models": [
+        {
+            "model_name": "yuvalkirstain/PickScore_v1",
+            "training": {
+                "train_loss": [
+                    0.5467901375293732,
+                    0.22514296303503215,
+                    0.20202607523789629
+                ],
+                "val_loss": [
+                    0.5329299550207834,
+                    0.610406230839472,
+                    0.6080926950015719
+                ]
+            },
+            "batches": [
+                {
+                    "batch_id": 0,
+                    "accuracy": 0.6875,
+                    "samples": 48,
+                    "matches": 33
+                },
+                {
+                    "batch_id": 1,
+                    "accuracy": 0.5833333730697632,
+                    "samples": 48,
+                    "matches": 28
+                },
+                {
+                    "batch_id": 2,
+                    "accuracy": 0.6458333730697632,
+                    "samples": 48,
+                    "matches": 31
+                },
+                {
+                    "batch_id": 3,
+                    "accuracy": 0.6458333730697632,
+                    "samples": 48,
+                    "matches": 31
+                },
+                {
+                    "batch_id": 4,
+                    "accuracy": 0.6041666865348816,
+                    "samples": 48,
+                    "matches": 29
+                },
+                {
+                    "batch_id": 5,
+                    "accuracy": 0.6458333730697632,
+                    "samples": 48,
+                    "matches": 31
+                },
+                {
+                    "batch_id": 6,
+                    "accuracy": 0.5625,
+                    "samples": 48,
+                    "matches": 27
+                },
+                {
+                    "batch_id": 7,
+                    "accuracy": 0.5416666865348816,
+                    "samples": 48,
+                    "matches": 26
+                },
+                {
+                    "batch_id": 8,
+                    "accuracy": 0.8125,
+                    "samples": 48,
+                    "matches": 39
+                },
+                {
+                    "batch_id": 9,
+                    "accuracy": 0.6666666865348816,
+                    "samples": 48,
+                    "matches": 32
+                },
+                {
+                    "batch_id": 10,
+                    "accuracy": 0.6458333730697632,
+                    "samples": 48,
+                    "matches": 31
+                },
+                {
+                    "batch_id": 11,
+                    "accuracy": 0.625,
+                    "samples": 48,
+                    "matches": 30
+                },
+                {
+                    "batch_id": 12,
+                    "accuracy": 0.5625,
+                    "samples": 48,
+                    "matches": 27
+                },
+                {
+                    "batch_id": 13,
+                    "accuracy": 0.625,
+                    "samples": 48,
+                    "matches": 30
+                },
+                {
+                    "batch_id": 14,
+                    "accuracy": 0.5833333730697632,
+                    "samples": 48,
+                    "matches": 28
+                },
+                {
+                    "batch_id": 15,
+                    "accuracy": 0.6666666865348816,
+                    "samples": 48,
+                    "matches": 32
+                },
+                {
+                    "batch_id": 16,
+                    "accuracy": 0.5208333730697632,
+                    "samples": 48,
+                    "matches": 25
+                },
+                {
+                    "batch_id": 17,
+                    "accuracy": 0.625,
+                    "samples": 48,
+                    "matches": 30
+                },
+                {
+                    "batch_id": 18,
+                    "accuracy": 0.5833333730697632,
+                    "samples": 48,
+                    "matches": 28
+                },
+                {
+                    "batch_id": 19,
+                    "accuracy": 0.5833333730697632,
+                    "samples": 48,
+                    "matches": 28
+                },
+                {
+                    "batch_id": 20,
+                    "accuracy": 0.5,
+                    "samples": 40,
+                    "matches": 20
+                }
+            ],
+            "total_accuracy": 0.616,
+            "total_samples": 1000,
+            "total_matches": 616
+        },
+        {
+            "model_name": "openai/clip-vit-base-patch32",
+            "training": {
+                "train_loss": [
+                    0.6511291444301606,
+                    0.4738988880366087,
+                    0.22859964594384655
+                ],
+                "val_loss": [
+                    0.6277359307758392,
+                    0.6405964408602033,
+                    0.7553471050092152
+                ]
+            },
+            "batches": [
+                {
+                    "batch_id": 0,
+                    "accuracy": 0.3958333432674408,
+                    "samples": 48,
+                    "matches": 19
+                },
+                {
+                    "batch_id": 1,
+                    "accuracy": 0.5416666865348816,
+                    "samples": 48,
+                    "matches": 26
+                },
+                {
+                    "batch_id": 2,
+                    "accuracy": 0.3333333432674408,
+                    "samples": 48,
+                    "matches": 16
+                },
+                {
+                    "batch_id": 3,
+                    "accuracy": 0.5416666865348816,
+                    "samples": 48,
+                    "matches": 26
+                },
+                {
+                    "batch_id": 4,
+                    "accuracy": 0.4375,
+                    "samples": 48,
+                    "matches": 21
+                },
+                {
+                    "batch_id": 5,
+                    "accuracy": 0.4375,
+                    "samples": 48,
+                    "matches": 21
+                },
+                {
+                    "batch_id": 6,
+                    "accuracy": 0.5,
+                    "samples": 48,
+                    "matches": 24
+                },
+                {
+                    "batch_id": 7,
+                    "accuracy": 0.2708333432674408,
+                    "samples": 48,
+                    "matches": 13
+                },
+                {
+                    "batch_id": 8,
+                    "accuracy": 0.3958333432674408,
+                    "samples": 48,
+                    "matches": 19
+                },
+                {
+                    "batch_id": 9,
+                    "accuracy": 0.5,
+                    "samples": 48,
+                    "matches": 24
+                },
+                {
+                    "batch_id": 10,
+                    "accuracy": 0.5625,
+                    "samples": 48,
+                    "matches": 27
+                },
+                {
+                    "batch_id": 11,
+                    "accuracy": 0.3541666865348816,
+                    "samples": 48,
+                    "matches": 17
+                },
+                {
+                    "batch_id": 12,
+                    "accuracy": 0.3958333432674408,
+                    "samples": 48,
+                    "matches": 19
+                },
+                {
+                    "batch_id": 13,
+                    "accuracy": 0.4583333432674408,
+                    "samples": 48,
+                    "matches": 22
+                },
+                {
+                    "batch_id": 14,
+                    "accuracy": 0.3541666865348816,
+                    "samples": 48,
+                    "matches": 17
+                },
+                {
+                    "batch_id": 15,
+                    "accuracy": 0.4375,
+                    "samples": 48,
+                    "matches": 21
+                },
+                {
+                    "batch_id": 16,
+                    "accuracy": 0.3541666865348816,
+                    "samples": 48,
+                    "matches": 17
+                },
+                {
+                    "batch_id": 17,
+                    "accuracy": 0.3333333432674408,
+                    "samples": 48,
+                    "matches": 16
+                },
+                {
+                    "batch_id": 18,
+                    "accuracy": 0.4375,
+                    "samples": 48,
+                    "matches": 21
+                },
+                {
+                    "batch_id": 19,
+                    "accuracy": 0.4375,
+                    "samples": 48,
+                    "matches": 21
+                },
+                {
+                    "batch_id": 20,
+                    "accuracy": 0.4000000059604645,
+                    "samples": 40,
+                    "matches": 16
+                }
+            ],
+            "total_accuracy": 0.423,
+            "total_samples": 1000,
+            "total_matches": 423
+        }
+    ]
+}

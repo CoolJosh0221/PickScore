@@ -6,7 +6,6 @@ from typing import Tuple
 def l2_normalize(x: torch.Tensor) -> torch.Tensor:
     return F.normalize(x, dim=-1)
 
-# TODO: verify the correctness of prob dist calculation
 def pairwise_scores(
     text_feat: torch.Tensor,
     img0_feat: torch.Tensor,

@@ -41,7 +41,7 @@ class ExperimentConfig:
 
     # Miscellaneous
     num_workers: int = 4
-    tie_margin: float = 0.15
+    tie_margin: float = 0.1
     seed: int = 42
 
 
@@ -102,5 +102,4 @@ LARGE_SCALE = ExperimentConfig(
     eval_batch_size=80,
     learning_rate=5e-6,
     weight_decay=2e-4,
-    tie_margin=0.1,
 )

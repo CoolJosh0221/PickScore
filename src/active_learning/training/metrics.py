@@ -8,10 +8,10 @@ def pref_metrics(
     s1: torch.Tensor,
     y0: torch.Tensor,
     y1: torch.Tensor,
-    tie_margin: float = 0.05,
+    tie_margin: float = 0.1,
 ) -> Dict[str, float]:
     label_gap = y0 - y1
-    pred_gap = s0 - s1
+    pred_gap = s0 - 0.5
     is_tie = label_gap == 0
     is_non_tie = ~is_tie
     nt_correct = (
@@ -37,7 +37,7 @@ def pref_metrics(
 
 
 class PrefMetricTracker:
-    def __init__(self, tie_margin: float = 0.05) -> None:
+    def __init__(self, tie_margin: float = 0.1) -> None:
         self.tie_margin = tie_margin
         self.reset()
 

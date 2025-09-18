@@ -1,10 +1,8 @@
-import json
 from pathlib import Path
-from typing import Mapping, Optional
+from typing import Mapping
 from datasets import load_dataset, Dataset as HFDataset
+from datasets.dataset_dict import DatasetDict
 from datasets.iterable_dataset import IterableDataset
-from datasets.arrow_writer import ArrowWriter
-import pyarrow as pa  # Verify dep
 
 
 def sample_and_save(
@@ -15,7 +13,6 @@ def sample_and_save(
     split: str = "train",
     seed: int = 42,
     shuffle_buffer: int = 1000,
-    hf_hub_name: Optional[str] = None,
 ) -> Path:
     """
     Sample and save dataset splits by exact sample counts.
@@ -38,95 +35,24 @@ def sample_and_save(
 
     if any(out_dir.iterdir()):
         print(f"Dataset already exists at {out_dir}, skipping...")
+        return out_dir
 
-    # Load and prepare streaming dataset
     stream: IterableDataset = load_dataset(dataset_name, split=split, streaming=True)  # type: ignore
     stream = stream.filter(lambda x: x["are_different"])
     stream = stream.shuffle(buffer_size=shuffle_buffer, seed=seed)
 
+    splits = {}
     for key, size in split_sizes.items():
-        split_dir = out_dir / key
-        split_dir.mkdir(parents=True, exist_ok=True)
         sampled = stream.take(size)
-
+        stream = stream.skip(size)
         ds = HFDataset.from_generator(
             lambda: (yield from sampled),
             features=sampled.features,
         )
-        ds.save_to_disk(split_dir)
+        splits[key] = ds
 
-    # TODO: Impl pushing to hf hub
-
-    """
-	features = stream.features  # required for ArrowWriter
-
-	# One ArrowWriter per split
-	writers = {}
-	for k in keys:
-		split_dir = out_dir / k
-		split_dir.mkdir(parents=True, exist_ok=True)
-		writers[k] = ArrowWriter(
-			path=str(split_dir / f"{k}.arrow"),
-			features=features,
-			writer_batch_size=chunk_size,
-		)
-
-	# Fill splits sequentially since the stream is already shuffled
-	it = iter(stream)
-	try:
-		for k in keys:
-			target = split_sizes[k]
-			for _ in range(target):
-				ex = next(it)
-				writers[k].write(ex)
-				taken[k] += 1
-	except StopIteration:
-		pass  # source exhausted
-
-	# Save dataset to disk
-	for k in keys:
-		split_dir = out_dir / k
-		writers[k].finalize()
-		ds = HFDataset.from_file(str(split_dir / f"{k}.arrow"))
-		ds.save_to_disk(split_dir)
-		try:
-			(split_dir / f"{k}.arrow").unlink()
-		except Exception:
-			pass
-
-		# Per-split manifest
-		(split_dir / "manifest.json").write_text(
-			json.dumps(
-				{
-					"split": k,
-					"samples": taken[k],
-					"target": split_sizes[k],
-					"completed": taken[k] == split_sizes[k],
-					"format": "hf_save_to_disk",
-				},
-				indent=2,
-			),
-			"utf-8",
-		)
-
-	# Save summary manifest
-	(out_dir / "summary.json").write_text(
-		json.dumps(
-			{
-				"total_requested": sum(split_sizes.values()),
-				"total_collected": sum(taken.values()),
-				"splits": {
-					k: {"collected": taken[k], "target": split_sizes[k]} for k in keys
-				},
-				"seed": seed,
-				"dataset_name": dataset_name,
-				"source_split": split,
-			},
-			indent=2,
-		),
-		"utf-8",
-	)
-	"""
+    dsd = DatasetDict(splits)
+    dsd.save_to_disk(str(out_dir))
 
     return out_dir
 

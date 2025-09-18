@@ -25,29 +25,25 @@ checkpoint_dir = Path("baselines/upper_bound/model_checkpoints/")
 tie_margin = 0.1
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-# Train Configs
 TRAIN_MODE = True
-FORCE_RETRAIN = True
+FORCE_RETRAIN = False
 
 train_config = {
     "train_batch_size": 8,
     "valid_batch_size": 16,
     "num_workers": 4,
-    "train_epochs": 3,
+    "train_epochs": 6,
     "learning_rate": 1e-5,
     "weight_decay": 0.01,
     "tie_margin": tie_margin,
     "seed": seed,
 }
 
-# Set seeds
 random.seed(seed)
 torch.manual_seed(seed)
 np.random.seed(seed)
 
-# Setup structured logging
 structlog.stdlib.recreate_defaults()
-# Prevent huggingface HTTP results from cluttering the log output
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
@@ -55,7 +51,6 @@ logging.getLogger("transformers.utils.hub").setLevel(logging.WARNING)
 logging.getLogger("transformers.tokenization_utils_base").setLevel(logging.WARNING)
 logger = structlog.get_logger("logger")
 
-# Initialize results structure
 results = {
     "timestamp": datetime.now().isoformat(),
     "seed": seed,
@@ -64,16 +59,13 @@ results = {
     "models": [],
 }
 
-
 @torch.no_grad()
 def calc_probability_distribution(s0: torch.Tensor, s1: torch.Tensor) -> torch.Tensor:
-    logits = torch.stack([s0, s1], dim=1)  # [B,2]
+    logits = torch.stack([s0, s1], dim=1)
     return F.softmax(logits, dim=1)
-
 
 @torch.no_grad()
 def snap_prediction(probs: torch.Tensor, tie_margin: float) -> torch.Tensor:
-    """Snap probs [B,2] to one of [1,0], [0,1], [0.5,0.5]."""
     diff = probs[:, 0] - 0.5
     tie = diff.abs() <= tie_margin
     out = torch.zeros_like(probs)
@@ -82,57 +74,41 @@ def snap_prediction(probs: torch.Tensor, tie_margin: float) -> torch.Tensor:
     out[~tie, 1] = 1.0 - out[~tie, 0]
     return out
 
-
 def checkpoint_exists(model_id: int) -> bool:
     model_checkpoint_dir = checkpoint_dir / str(model_id)
     last_checkpoint = model_checkpoint_dir / "last.pt"
     best_checkpoint = model_checkpoint_dir / "best.pt"
     return last_checkpoint.exists() or best_checkpoint.exists()
 
-
 def load_checkpoint(model: BaseModel, model_id: int) -> dict:
     model_checkpoint_dir = checkpoint_dir / str(model_id)
     best_checkpoint = model_checkpoint_dir / "best.pt"
     last_checkpoint = model_checkpoint_dir / "last.pt"
-
     checkpoint_info = {"loaded": False, "checkpoint_path": None}
-
     if best_checkpoint.exists():
         try:
             model.load(best_checkpoint)
             checkpoint_info = {"loaded": True, "checkpoint_path": str(best_checkpoint)}
             logger.info("checkpoint_loaded", path=str(best_checkpoint), type="best")
         except Exception as e:
-            logger.error(
-                "checkpoint_load_failed", path=str(best_checkpoint), error=str(e)
-            )
+            logger.error("checkpoint_load_failed", path=str(best_checkpoint), error=str(e))
     elif last_checkpoint.exists():
         try:
             model.load(last_checkpoint)
             checkpoint_info = {"loaded": True, "checkpoint_path": str(last_checkpoint)}
             logger.info("checkpoint_loaded", path=str(last_checkpoint), type="last")
         except Exception as e:
-            logger.error(
-                "checkpoint_load_failed", path=str(last_checkpoint), error=str(e)
-            )
-
+            logger.error("checkpoint_load_failed", path=str(last_checkpoint), error=str(e))
     return checkpoint_info
 
-
-def train_model(
-    model, processor, optimizer, scaler, train_loader, valid_loader, model_id
-):
+def train_model(model, processor, optimizer, scaler, train_loader, valid_loader, model_id):
     model_checkpoint_dir = checkpoint_dir / str(model_id)
     model_checkpoint_dir.mkdir(parents=True, exist_ok=True)
-
     best_val_loss = float("inf")
-
+    train_losses = []
+    val_losses = []
     for epoch in range(1, train_config["train_epochs"] + 1):
-        logger.info(
-            "epoch_started",
-            epoch=epoch + 1,
-            total_epochs=train_config["train_epochs"],
-        )
+        logger.info("epoch_started", epoch=epoch + 1, total_epochs=train_config["train_epochs"])
         train_loss = train_one_epoch(
             model=model,
             processor=processor,
@@ -142,12 +118,8 @@ def train_model(
             device=device,
             epoch=epoch,
         )
-        logger.info(
-            "epoch_complete",
-            epoch=epoch + 1,
-            total_epochs=train_config["train_epochs"],
-            train_loss=train_loss,
-        )
+        train_losses.append(float(train_loss))
+        logger.info("epoch_complete", epoch=epoch + 1, total_epochs=train_config["train_epochs"], train_loss=train_loss)
         val = validate_epoch(
             model=model,
             processor=processor,
@@ -155,60 +127,44 @@ def train_model(
             device=device,
             tie_margin=tie_margin,
         )
-        val_loss = val["val_loss"]
-        logger.info(
-            "validation_complete",
-            epoch=epoch + 1,
-            total_epochs=train_config["train_epochs"],
-            valid_loss=val_loss,
-        )
-        logger.info(
-            "epoch_complete",
-            epoch=epoch + 1,
-            total_epochs=train_config["train_epochs"],
-        )
-
+        val_loss = float(val["val_loss"])
+        val_losses.append(val_loss)
+        logger.info("validation_complete", epoch=epoch + 1, total_epochs=train_config["train_epochs"], valid_loss=val_loss)
+        logger.info("epoch_complete", epoch=epoch + 1, total_epochs=train_config["train_epochs"])
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             best_checkpoint_path = model_checkpoint_dir / "best.pt"
             model.save(best_checkpoint_path)
-            logger.info(
-                "best_checkpoint_saved",
-                path=str(best_checkpoint_path),
-                epoch=epoch,
-                val_loss=val_loss,
-                improvement=True,
-            )
+            logger.info("best_checkpoint_saved", path=str(best_checkpoint_path), epoch=epoch, val_loss=val_loss, improvement=True)
         if epoch == train_config["train_epochs"]:
             last_checkpoint_path = model_checkpoint_dir / "last.pt"
             model.save(last_checkpoint_path)
-            logger.info(
-                "last_checkpoint_saved",
-                path=str(last_checkpoint_path),
-                epoch=epoch,
-            )
-
+            logger.info("last_checkpoint_saved", path=str(last_checkpoint_path), epoch=epoch)
+    return {"train_loss": train_losses, "val_loss": val_losses}
 
 pretrained_models = [
     "yuvalkirstain/PickScore_v1",
-    "openai/clip-vit-base-patch32",
+    "laion/CLIP-ViT-H-14-laion2B-s32B-b79K",
 ]
 
 for model_id, pretrained_model in enumerate(pretrained_models):
     print(f"\nEvaluating model: {pretrained_model}")
-
-    model: BaseModel = CLIPModel(
-        pretrained_model_name_or_path=pretrained_model,
-    )
+    model: BaseModel = CLIPModel(pretrained_model_name_or_path=pretrained_model)
     model.eval().to(device)
-
     processor = CLIPProcessor.from_pretrained(pretrained_model)
 
-    # Check and load checkpoint
     checkpoint_exists_flag = checkpoint_exists(model_id)
-    checkpoint_info = {"loaded": False}
 
+    training_log = {"train_loss": [], "val_loss": []}
     if FORCE_RETRAIN or (TRAIN_MODE and not checkpoint_exists_flag):
+        if FORCE_RETRAIN:
+            answer = input("Force retrain? y/[n]")
+            if answer == "y":
+                print("Proceeding to retrain")
+            else:
+                import sys
+                print("Aborting...")
+                sys.exit(0)
         optimizer = torch.optim.AdamW(
             model.parameters(),
             lr=train_config["learning_rate"],
@@ -231,23 +187,16 @@ for model_id, pretrained_model in enumerate(pretrained_models):
             processor=processor,
             shuffle=False,
         )
-        logger.info(
-            "training_started",
-            model_id=model_id,
-            pretrained_model_name=pretrained_model,
-            **train_config,
-        )
-        train_model(
-            model, processor, optimizer, scaler, train_loader, valid_loader, model_id
-        )
+        logger.info("training_started", model_id=model_id, pretrained_model_name=pretrained_model, **train_config)
+        training_log = train_model(model, processor, optimizer, scaler, train_loader, valid_loader, model_id)
     else:
         logger.info("Training skipped; checkpoint already exists", model_id=model_id)
 
     load_checkpoint(model, model_id)
 
-    # Initialize model results
     model_results = {
         "model_name": pretrained_model,
+        "training": training_log,
         "batches": [],
         "total_accuracy": 0,
         "total_samples": 0,
@@ -266,15 +215,15 @@ for model_id, pretrained_model in enumerate(pretrained_models):
     total_matches, total_samples = 0, 0
 
     for i, batch in enumerate(dl):
-        img0 = batch["image_0"].to(device)  # [B,C,H,W]
-        img1 = batch["image_1"].to(device)  # [B,C,H,W]
+        img0 = batch["image_0"].to(device)
+        img1 = batch["image_1"].to(device)
         captions = batch["caption"]
-        imgs = torch.cat([img0, img1], dim=0)  # [2B,C,H,W]
+        imgs = torch.cat([img0, img1], dim=0)
 
         with torch.no_grad():
-            image_feats = model.get_image_features(imgs)  # [2B,d]
+            image_feats = model.get_image_features(imgs)
             image_feats = F.normalize(image_feats, dim=-1)
-            i0, i1 = image_feats.chunk(2, dim=0)  # [B,d] each
+            i0, i1 = image_feats.chunk(2, dim=0)
 
             text_inputs = processor(
                 text=captions,
@@ -283,25 +232,23 @@ for model_id, pretrained_model in enumerate(pretrained_models):
                 max_length=77,
                 return_tensors="pt",
             ).to(device)
-            text_feats = model.get_text_features(**text_inputs)  # [B,d]
+            text_feats = model.get_text_features(**text_inputs)
             text_feats = F.normalize(text_feats, dim=-1)
 
-            # Calculate similarities
-            s0 = (text_feats * i0).sum(dim=-1)  # [B]
-            s1 = (text_feats * i1).sum(dim=-1)  # [B]
+            s0 = (text_feats * i0).sum(dim=-1)
+            s1 = (text_feats * i1).sum(dim=-1)
 
-            # Apply logit scale if available
             if hasattr(model, "logit_scale"):
                 scale = model.logit_scale.exp()
             else:
                 scale = 1.0
             s0, s1 = s0 * scale, s1 * scale
 
-            probs = calc_probability_distribution(s0, s1)  # [B,2]
+            probs = calc_probability_distribution(s0, s1)
             preds = snap_prediction(probs, tie_margin)
 
         labels = torch.stack([batch["label_0"], batch["label_1"]], dim=1).to(device)
-        matches = (preds == labels).all(dim=1)  # [B]
+        matches = (preds == labels).all(dim=1)
         batch_matches = matches.sum().item()
         batch_samples = matches.shape[0]
         batch_acc = matches.float().mean().item()
@@ -309,7 +256,6 @@ for model_id, pretrained_model in enumerate(pretrained_models):
         total_matches += batch_matches
         total_samples += batch_samples
 
-        # Store batch results
         model_results["batches"].append(
             {
                 "batch_id": i,
@@ -321,15 +267,11 @@ for model_id, pretrained_model in enumerate(pretrained_models):
 
         print(f"Batch {i}'s accuracy: {batch_acc:.2%}")
 
-    overall_acc = total_matches / total_samples
-
-    # Store final model results
+    overall_acc = total_matches / total_samples if total_samples > 0 else 0.0
     model_results["total_accuracy"] = overall_acc
     model_results["total_samples"] = total_samples
     model_results["total_matches"] = total_matches
-
     results["models"].append(model_results)
-
     print(f"Overall accuracy for model {pretrained_model}: {overall_acc:.2%}")
 
 print(f"\nSaving results to {result_file}")
@@ -338,7 +280,6 @@ with open(result_file, "w") as f:
 
 print("Evaluation complete!")
 
-# Summary
 print("\n" + "=" * 50)
 print("SUMMARY")
 print("=" * 50)

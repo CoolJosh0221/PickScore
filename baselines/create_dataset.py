@@ -1,10 +1,19 @@
+import os
+
+from datasets import load_from_disk
+from dotenv import load_dotenv
+import huggingface_hub
+
 from active_learning.data.sampling import create_standard_splits
+
+load_dotenv()
+
+huggingface_hub.login(token=os.getenv("HF_TOKEN"))
 
 seed = 45510
 
 ds_dir = "baselines/dataset/"
 
-# TODO: Increase data size after functionality testing
 ds_dir_path = create_standard_splits(
     ds_dir,
     dataset_name="pickapic-anonymous/pickapic_v1",
@@ -15,3 +24,6 @@ ds_dir_path = create_standard_splits(
 )
 
 print(f"Dataset created at {ds_dir_path}")
+
+ds = load_from_disk(ds_dir_path)
+ds.push_to_hub("cooljosh0221/pickapic-10000")

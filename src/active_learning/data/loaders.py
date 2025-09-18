@@ -2,7 +2,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import DataLoader
 from .datasets import PreferenceDataset
-from .collate import collate_fn, set_processor
+from .collate import Collate
 
 
 def create_dataloader(
@@ -14,7 +14,8 @@ def create_dataloader(
     shuffle: bool,
 ) -> DataLoader:
     ds = PreferenceDataset(Path(data_dir) / split)
-    set_processor(processor)
+    collater = Collate()
+    collater.set_processor(processor)
     return DataLoader(
         ds,
         batch_size=batch_size,
@@ -23,5 +24,5 @@ def create_dataloader(
         pin_memory=torch.cuda.is_available(),
         persistent_workers=num_workers > 0,
         prefetch_factor=4 if num_workers > 0 else None,
-        collate_fn=collate_fn,
+        collate_fn=collater,
     )

@@ -4,7 +4,7 @@ from typing import List, Dict, Set
 from torch.utils.data import DataLoader, ConcatDataset
 
 from .datasets import PreferenceDataset, ALIndexedDataset
-from .collate import collate_fn
+from .collate import Collate
 
 
 class ActiveLearningDataManager:
@@ -82,7 +82,7 @@ class ActiveLearningDataManager:
             batch_size=batch_size,
             shuffle=shuffle,
             num_workers=self.num_workers,
-            collate_fn=collate_fn,
+            collate_fn=Collate,
             pin_memory=True,
             persistent_workers=self.num_workers > 0,
         )
@@ -104,7 +104,7 @@ class ActiveLearningDataManager:
                 batch_size=batch_size,
                 shuffle=False,
                 num_workers=0,
-                collate_fn=collate_fn,
+                collate_fn=Collate,
             )
 
         unlabeled_dataset = ALIndexedDataset(self.pool_dataset, unlabeled_indices)
@@ -114,7 +114,7 @@ class ActiveLearningDataManager:
             batch_size=batch_size,
             shuffle=shuffle,
             num_workers=self.num_workers,
-            collate_fn=collate_fn,
+            collate_fn=Collate,
             pin_memory=True,
             persistent_workers=self.num_workers > 0,
         )
@@ -129,7 +129,7 @@ class ActiveLearningDataManager:
             batch_size=batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            collate_fn=collate_fn,
+            collate_fn=Collate,
             pin_memory=True,
         )
 
