@@ -9,11 +9,15 @@ import numpy as np
 import structlog
 import torch
 import torch.nn.functional as F
+import wandb
+from logging import FileHandler, StreamHandler
+from structlog.processors import JSONRenderer
+from structlog.stdlib import ProcessorFormatter
 from transformers import CLIPProcessor
 
 from active_learning.data.loaders import create_dataloader
 from active_learning.models.base_model import BaseModel
-from active_learning.models.model_baseline import CLIPModel
+from active_learning.models.model_mcdo import MCDropoutCLIPModel
 from active_learning.training.train import train_one_epoch, validate_epoch
 
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -22,19 +26,21 @@ seed: int = 45510
 data_dir: Path = Path("baselines/dataset/")
 result_file: Path = Path("baselines/upper_bound/result.json")
 checkpoint_dir = Path("baselines/upper_bound/model_checkpoints/")
+log_dir = checkpoint_dir.parent / "logs"
 tie_margin = 0.1
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 TRAIN_MODE = True
 FORCE_RETRAIN = False
+USE_WANDB = True
 
 train_config = {
-    "train_batch_size": 8,
+    "train_batch_size": 6,
     "valid_batch_size": 16,
     "num_workers": 4,
-    "train_epochs": 6,
+    "train_epochs": 10,
     "learning_rate": 1e-5,
-    "weight_decay": 0.01,
+    "weight_decay": 0.1,
     "tie_margin": tie_margin,
     "seed": seed,
 }
@@ -43,13 +49,55 @@ random.seed(seed)
 torch.manual_seed(seed)
 np.random.seed(seed)
 
-structlog.stdlib.recreate_defaults()
+logging.basicConfig(level=logging.WARNING, handlers=[])
+
+shared_processors = [
+    structlog.stdlib.filter_by_level,
+    structlog.processors.TimeStamper(fmt="iso", key="timestamp"),
+    structlog.stdlib.add_logger_name,
+    structlog.stdlib.add_log_level,
+    structlog.stdlib.PositionalArgumentsFormatter(),
+    structlog.processors.StackInfoRenderer(),
+    structlog.processors.format_exc_info,
+    structlog.processors.UnicodeDecoder(),
+]
+
+structlog.configure(
+    processors=shared_processors + [structlog.stdlib.ProcessorFormatter.wrap_for_formatter],
+    logger_factory=structlog.stdlib.LoggerFactory(),
+    wrapper_class=structlog.stdlib.BoundLogger,
+    cache_logger_on_first_use=True,
+)
+
+log_dir.mkdir(parents=True, exist_ok=True)
+log_file = log_dir / "training_log.jsonl"
+
+console_handler = StreamHandler()
+console_handler.setFormatter(
+    structlog.stdlib.ProcessorFormatter(
+        processors=[structlog.dev.ConsoleRenderer(colors=True)],
+    )
+)
+
+file_handler = FileHandler(str(log_file), mode="a")
+file_handler.setFormatter(
+    structlog.stdlib.ProcessorFormatter(
+        processors=[structlog.processors.JSONRenderer(indent=4)],
+    )
+)
+
+base_logger = logging.getLogger("logger")
+base_logger.addHandler(console_handler)
+base_logger.addHandler(file_handler)
+base_logger.setLevel(logging.INFO)
+
+logger = structlog.get_logger("logger")
+
 logging.getLogger("urllib3").setLevel(logging.WARNING)
 logging.getLogger("requests").setLevel(logging.WARNING)
 logging.getLogger("urllib3.connectionpool").setLevel(logging.WARNING)
 logging.getLogger("transformers.utils.hub").setLevel(logging.WARNING)
 logging.getLogger("transformers.tokenization_utils_base").setLevel(logging.WARNING)
-logger = structlog.get_logger("logger")
 
 results = {
     "timestamp": datetime.now().isoformat(),
@@ -59,10 +107,12 @@ results = {
     "models": [],
 }
 
+
 @torch.no_grad()
 def calc_probability_distribution(s0: torch.Tensor, s1: torch.Tensor) -> torch.Tensor:
     logits = torch.stack([s0, s1], dim=1)
     return F.softmax(logits, dim=1)
+
 
 @torch.no_grad()
 def snap_prediction(probs: torch.Tensor, tie_margin: float) -> torch.Tensor:
@@ -74,11 +124,13 @@ def snap_prediction(probs: torch.Tensor, tie_margin: float) -> torch.Tensor:
     out[~tie, 1] = 1.0 - out[~tie, 0]
     return out
 
+
 def checkpoint_exists(model_id: int) -> bool:
     model_checkpoint_dir = checkpoint_dir / str(model_id)
     last_checkpoint = model_checkpoint_dir / "last.pt"
     best_checkpoint = model_checkpoint_dir / "best.pt"
     return last_checkpoint.exists() or best_checkpoint.exists()
+
 
 def load_checkpoint(model: BaseModel, model_id: int) -> dict:
     model_checkpoint_dir = checkpoint_dir / str(model_id)
@@ -91,24 +143,33 @@ def load_checkpoint(model: BaseModel, model_id: int) -> dict:
             checkpoint_info = {"loaded": True, "checkpoint_path": str(best_checkpoint)}
             logger.info("checkpoint_loaded", path=str(best_checkpoint), type="best")
         except Exception as e:
-            logger.error("checkpoint_load_failed", path=str(best_checkpoint), error=str(e))
+            logger.error(
+                "checkpoint_load_failed", path=str(best_checkpoint), error=str(e)
+            )
     elif last_checkpoint.exists():
         try:
             model.load(last_checkpoint)
             checkpoint_info = {"loaded": True, "checkpoint_path": str(last_checkpoint)}
             logger.info("checkpoint_loaded", path=str(last_checkpoint), type="last")
         except Exception as e:
-            logger.error("checkpoint_load_failed", path=str(last_checkpoint), error=str(e))
+            logger.error(
+                "checkpoint_load_failed", path=str(last_checkpoint), error=str(e)
+            )
     return checkpoint_info
 
-def train_model(model, processor, optimizer, scaler, train_loader, valid_loader, model_id):
+
+def train_model(
+    model, processor, optimizer, scaler, train_loader, valid_loader, model_id
+):
     model_checkpoint_dir = checkpoint_dir / str(model_id)
     model_checkpoint_dir.mkdir(parents=True, exist_ok=True)
     best_val_loss = float("inf")
     train_losses = []
     val_losses = []
     for epoch in range(1, train_config["train_epochs"] + 1):
-        logger.info("epoch_started", epoch=epoch + 1, total_epochs=train_config["train_epochs"])
+        logger.info(
+            "epoch_started", epoch=epoch + 1, total_epochs=train_config["train_epochs"]
+        )
         train_loss = train_one_epoch(
             model=model,
             processor=processor,
@@ -119,7 +180,12 @@ def train_model(model, processor, optimizer, scaler, train_loader, valid_loader,
             epoch=epoch,
         )
         train_losses.append(float(train_loss))
-        logger.info("epoch_complete", epoch=epoch + 1, total_epochs=train_config["train_epochs"], train_loss=train_loss)
+        logger.info(
+            "epoch_complete",
+            epoch=epoch + 1,
+            total_epochs=train_config["train_epochs"],
+            train_loss=train_loss,
+        )
         val = validate_epoch(
             model=model,
             processor=processor,
@@ -129,29 +195,54 @@ def train_model(model, processor, optimizer, scaler, train_loader, valid_loader,
         )
         val_loss = float(val["val_loss"])
         val_losses.append(val_loss)
-        logger.info("validation_complete", epoch=epoch + 1, total_epochs=train_config["train_epochs"], valid_loss=val_loss)
-        logger.info("epoch_complete", epoch=epoch + 1, total_epochs=train_config["train_epochs"])
+        logger.info(
+            "validation_complete",
+            epoch=epoch + 1,
+            total_epochs=train_config["train_epochs"],
+            valid_loss=val_loss,
+        )
+        logger.info(
+            "epoch_complete", epoch=epoch + 1, total_epochs=train_config["train_epochs"]
+        )
+        if USE_WANDB:
+            wandb.log({"epoch": epoch, "train_loss": train_loss, "val_loss": val_loss})
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             best_checkpoint_path = model_checkpoint_dir / "best.pt"
             model.save(best_checkpoint_path)
-            logger.info("best_checkpoint_saved", path=str(best_checkpoint_path), epoch=epoch, val_loss=val_loss, improvement=True)
+            logger.info(
+                "best_checkpoint_saved",
+                path=str(best_checkpoint_path),
+                epoch=epoch,
+                val_loss=val_loss,
+                improvement=True,
+            )
         if epoch == train_config["train_epochs"]:
             last_checkpoint_path = model_checkpoint_dir / "last.pt"
             model.save(last_checkpoint_path)
-            logger.info("last_checkpoint_saved", path=str(last_checkpoint_path), epoch=epoch)
+            logger.info(
+                "last_checkpoint_saved", path=str(last_checkpoint_path), epoch=epoch
+            )
     return {"train_loss": train_losses, "val_loss": val_losses}
 
+
 pretrained_models = [
-    "yuvalkirstain/PickScore_v1",
+    # "yuvalkirstain/PickScore_v1",
     "laion/CLIP-ViT-H-14-laion2B-s32B-b79K",
 ]
 
 for model_id, pretrained_model in enumerate(pretrained_models):
     print(f"\nEvaluating model: {pretrained_model}")
-    model: BaseModel = CLIPModel(pretrained_model_name_or_path=pretrained_model)
+    model: BaseModel = MCDropoutCLIPModel(
+        pretrained_model_name_or_path=pretrained_model, mc_dropout_p=0.2
+    )
+    model.enable_mc_dropout = False
     model.eval().to(device)
     processor = CLIPProcessor.from_pretrained(pretrained_model)
+
+    if USE_WANDB:
+        run_name = f"{pretrained_model.split('/')[-1]}_{model_id}"
+        wandb.init(project="clip-upper-bound", name=run_name, config=train_config)
 
     checkpoint_exists_flag = checkpoint_exists(model_id)
 
@@ -163,6 +254,7 @@ for model_id, pretrained_model in enumerate(pretrained_models):
                 print("Proceeding to retrain")
             else:
                 import sys
+
                 print("Aborting...")
                 sys.exit(0)
         optimizer = torch.optim.AdamW(
@@ -187,8 +279,15 @@ for model_id, pretrained_model in enumerate(pretrained_models):
             processor=processor,
             shuffle=False,
         )
-        logger.info("training_started", model_id=model_id, pretrained_model_name=pretrained_model, **train_config)
-        training_log = train_model(model, processor, optimizer, scaler, train_loader, valid_loader, model_id)
+        logger.info(
+            "training_started",
+            model_id=model_id,
+            pretrained_model_name=pretrained_model,
+            **train_config,
+        )
+        training_log = train_model(
+            model, processor, optimizer, scaler, train_loader, valid_loader, model_id
+        )
     else:
         logger.info("Training skipped; checkpoint already exists", model_id=model_id)
 
@@ -273,6 +372,10 @@ for model_id, pretrained_model in enumerate(pretrained_models):
     model_results["total_matches"] = total_matches
     results["models"].append(model_results)
     print(f"Overall accuracy for model {pretrained_model}: {overall_acc:.2%}")
+
+    if USE_WANDB:
+        wandb.log({"test_accuracy": overall_acc})
+        wandb.finish()
 
 print(f"\nSaving results to {result_file}")
 with open(result_file, "w") as f:

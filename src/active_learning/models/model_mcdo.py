@@ -32,6 +32,8 @@ class MCDropoutCLIPModel(BaseModel):
         self.image_dropout = nn.Dropout(p=mc_dropout_p)
 
         # Disable MCDropout by default
+        # Turn on this setting to enable dropout during inference
+        # If turned off, model still trains with dropout, but eval() disables it as usual
         self.enable_mc_dropout: bool = False
 
     def get_text_features(self, *args, **kwargs):
