@@ -35,10 +35,10 @@ FORCE_RETRAIN = False
 USE_WANDB = True
 
 train_config = {
-    "train_batch_size": 6,
+    "train_batch_size": 8,
     "valid_batch_size": 16,
-    "num_workers": 4,
-    "train_epochs": 10,
+    "num_workers": 8,
+    "train_epochs": 5,
     "learning_rate": 1e-5,
     "weight_decay": 0.1,
     "tie_margin": tie_margin,
@@ -143,18 +143,14 @@ def load_checkpoint(model: BaseModel, model_id: int) -> dict:
             checkpoint_info = {"loaded": True, "checkpoint_path": str(best_checkpoint)}
             logger.info("checkpoint_loaded", path=str(best_checkpoint), type="best")
         except Exception as e:
-            logger.error(
-                "checkpoint_load_failed", path=str(best_checkpoint), error=str(e)
-            )
+            logger.error("checkpoint_load_failed", path=str(best_checkpoint), error=str(e))
     elif last_checkpoint.exists():
         try:
             model.load(last_checkpoint)
             checkpoint_info = {"loaded": True, "checkpoint_path": str(last_checkpoint)}
             logger.info("checkpoint_loaded", path=str(last_checkpoint), type="last")
         except Exception as e:
-            logger.error(
-                "checkpoint_load_failed", path=str(last_checkpoint), error=str(e)
-            )
+            logger.error("checkpoint_load_failed", path=str(last_checkpoint), error=str(e))
     return checkpoint_info
 
 
@@ -167,9 +163,8 @@ def train_model(
     train_losses = []
     val_losses = []
     for epoch in range(1, train_config["train_epochs"] + 1):
-        logger.info(
-            "epoch_started", epoch=epoch + 1, total_epochs=train_config["train_epochs"]
-        )
+        logger.info("epoch_started", epoch=epoch)
+        
         train_loss = train_one_epoch(
             model=model,
             processor=processor,
@@ -180,12 +175,7 @@ def train_model(
             epoch=epoch,
         )
         train_losses.append(float(train_loss))
-        logger.info(
-            "epoch_complete",
-            epoch=epoch + 1,
-            total_epochs=train_config["train_epochs"],
-            train_loss=train_loss,
-        )
+        
         val = validate_epoch(
             model=model,
             processor=processor,
@@ -195,34 +185,23 @@ def train_model(
         )
         val_loss = float(val["val_loss"])
         val_losses.append(val_loss)
-        logger.info(
-            "validation_complete",
-            epoch=epoch + 1,
-            total_epochs=train_config["train_epochs"],
-            valid_loss=val_loss,
-        )
-        logger.info(
-            "epoch_complete", epoch=epoch + 1, total_epochs=train_config["train_epochs"]
-        )
+        
+        logger.info("epoch_complete", epoch=epoch, train_loss=train_loss, val_loss=val_loss)
+        
         if USE_WANDB:
             wandb.log({"epoch": epoch, "train_loss": train_loss, "val_loss": val_loss})
+        
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             best_checkpoint_path = model_checkpoint_dir / "best.pt"
             model.save(best_checkpoint_path)
-            logger.info(
-                "best_checkpoint_saved",
-                path=str(best_checkpoint_path),
-                epoch=epoch,
-                val_loss=val_loss,
-                improvement=True,
-            )
+            logger.info("best_checkpoint_saved", path=str(best_checkpoint_path), epoch=epoch)
+        
         if epoch == train_config["train_epochs"]:
             last_checkpoint_path = model_checkpoint_dir / "last.pt"
             model.save(last_checkpoint_path)
-            logger.info(
-                "last_checkpoint_saved", path=str(last_checkpoint_path), epoch=epoch
-            )
+            logger.info("last_checkpoint_saved", path=str(last_checkpoint_path))
+    
     return {"train_loss": train_losses, "val_loss": val_losses}
 
 
@@ -254,9 +233,9 @@ for model_id, pretrained_model in enumerate(pretrained_models):
                 print("Proceeding to retrain")
             else:
                 import sys
-
                 print("Aborting...")
                 sys.exit(0)
+        
         optimizer = torch.optim.AdamW(
             model.parameters(),
             lr=train_config["learning_rate"],
@@ -279,17 +258,17 @@ for model_id, pretrained_model in enumerate(pretrained_models):
             processor=processor,
             shuffle=False,
         )
-        logger.info(
-            "training_started",
-            model_id=model_id,
-            pretrained_model_name=pretrained_model,
-            **train_config,
-        )
+        logger.info("training_started", 
+                   model_id=model_id, 
+                   model=pretrained_model,
+                   lr=train_config["learning_rate"],
+                   epochs=train_config["train_epochs"])
+        
         training_log = train_model(
             model, processor, optimizer, scaler, train_loader, valid_loader, model_id
         )
     else:
-        logger.info("Training skipped; checkpoint already exists", model_id=model_id)
+        logger.info("training_skipped", model_id=model_id)
 
     load_checkpoint(model, model_id)
 
