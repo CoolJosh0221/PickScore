@@ -105,57 +105,6 @@ class CLIPModel(nn.Module):
             self.training = False
         return self
 
-    # def mc_inference(self, text_inputs=None, image_inputs=None, n_samples=10):
-    #     """
-    #     Perform MC Dropout inference with multiple forward passes to estimate uncertainty
-    #     Args:
-    #         text_inputs: Text inputs to the model
-    #         image_inputs: Image inputs to the model
-    #         n_samples: Number of MC samples to take
-
-    #     Returns:
-    #         Dictionary with mean and std of features, and samples
-    #     """
-    #     # Store original MC dropout state
-    #     original_mc_state = self.enable_mc_dropout
-
-    #     # Enable MC dropout for inference
-    #     self.enable_mc_dropout = True
-    #     self.eval()  # This won't disable dropout due to our override
-
-    #     text_features_samples = []
-    #     image_features_samples = []
-
-    #     with torch.no_grad():
-    #         for _ in range(n_samples):
-    #             if text_inputs is not None:
-    #                 text_features = self.get_text_features(text_inputs)
-    #                 text_features_samples.append(text_features)
-
-    #             if image_inputs is not None:
-    #                 image_features = self.get_image_features(image_inputs)
-    #                 image_features_samples.append(image_features)
-
-    #     # Restore original MC dropout state
-    #     self.enable_mc_dropout = original_mc_state
-    #     if not self.enable_mc_dropout:
-    #         self.eval()  # Reset to proper eval state
-
-    #     # Process results
-    #     results = {}
-    #     if text_inputs is not None and text_features_samples:
-    #         text_features_stack = torch.stack(text_features_samples)
-    #         results["text_features_mean"] = torch.mean(text_features_stack, dim=0)
-    #         results["text_features_std"] = torch.std(text_features_stack, dim=0)
-    #         results["text_features_samples"] = text_features_stack
-
-    #     if image_inputs is not None and image_features_samples:
-    #         image_features_stack = torch.stack(image_features_samples)
-    #         results["image_features_mean"] = torch.mean(image_features_stack, dim=0)
-    #         results["image_features_std"] = torch.std(image_features_stack, dim=0)
-    #         results["image_features_samples"] = image_features_stack
-
-    #     return results
 
     def calc_probs_with_uncertainty(
         self, prompt, images, processor, n_samples=10, device="cuda"
