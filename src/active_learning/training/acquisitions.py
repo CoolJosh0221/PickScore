@@ -12,7 +12,11 @@ class Acquisition(ABC):
 
     @abstractmethod
     def score(
-        self, *, mean_probs: torch.Tensor, mc_probs: Optional[torch.Tensor] = None
+        self,
+        *,
+        mean_probs: torch.Tensor,
+        mc_probs: Optional[torch.Tensor] = None,
+        **kwargs,
     ) -> torch.Tensor:
         """
         Score samples for acquisition priority.
@@ -20,6 +24,8 @@ class Acquisition(ABC):
         Args:
             mean_probs: [N,K] mean predictive probabilities
             mc_probs: [T,N,K] per-sample probs over T stochastic passes
+            **kwargs: Additional arguments for specific acquisition strategies
+                      (e.g., candidate_embeds for CoresetKCenter)
         Returns:
             scores: [N] higher scores = acquire first
         """
@@ -34,7 +40,7 @@ def _entropy(p: torch.Tensor) -> torch.Tensor:
 
 class RandomSampling(Acquisition):
     def score(
-        self, *, mean_probs: torch.Tensor, mc_probs: Optional[torch.Tensor] = None
+        self, *, mean_probs: torch.Tensor, mc_probs: Optional[torch.Tensor] = None, **kwargs
     ) -> torch.Tensor:
         """Return random scores for each sample."""
         return torch.rand(mean_probs.size(0), device=mean_probs.device)
@@ -46,7 +52,7 @@ class BALD(Acquisition):
     requires_mc = True
 
     def score(
-        self, *, mean_probs: torch.Tensor, mc_probs: Optional[torch.Tensor] = None
+        self, *, mean_probs: torch.Tensor, mc_probs: Optional[torch.Tensor] = None, **kwargs
     ) -> torch.Tensor:
         if mc_probs is None:
             raise ValueError("BALD requires mc_probs with shape [T,N,K]")
@@ -57,7 +63,7 @@ class EntropyUncertainty(Acquisition):
     """Predictive entropy of the mean distribution."""
 
     def score(
-        self, *, mean_probs: torch.Tensor, mc_probs: Optional[torch.Tensor] = None
+        self, *, mean_probs: torch.Tensor, mc_probs: Optional[torch.Tensor] = None, **kwargs
     ) -> torch.Tensor:
         return _entropy(mean_probs)
 
@@ -66,7 +72,7 @@ class LeastConfidence(Acquisition):
     """Uncertainty as 1 - max class probability."""
 
     def score(
-        self, *, mean_probs: torch.Tensor, mc_probs: Optional[torch.Tensor] = None
+        self, *, mean_probs: torch.Tensor, mc_probs: Optional[torch.Tensor] = None, **kwargs
     ) -> torch.Tensor:
         return 1.0 - mean_probs.max(dim=-1).values
 
@@ -91,6 +97,7 @@ class CoresetKCenter(Acquisition):
         mean_probs: torch.Tensor,
         mc_probs: Optional[torch.Tensor] = None,
         candidate_embeds: Optional[torch.Tensor] = None,
+        **kwargs,
     ) -> torch.Tensor:
         if self.bank is None or candidate_embeds is None:
             raise ValueError("Must call fit() first and provide candidate_embeds")

@@ -6,7 +6,7 @@ from attrs import asdict
 import wandb
 from active_learning.data.sampling import create_active_learning_splits
 from active_learning.training.active_learning import run_active_learning
-from configs.experiment_configs import FAST_PROTOTYPE, MEDIUM_SCALE, ExperimentConfig
+from configs.experiment_configs import FAST_PROTOTYPE, SMALL_SCALE, MEDIUM_SCALE, ExperimentConfig
 
 
 def run_experiment(
@@ -57,12 +57,13 @@ def run_experiment(
             mc_dropout_p=config.mc_dropout_p,
             experiment_name=experiment_name,
             seed=config.seed,
+            early_stopping_patience=getattr(config, "early_stopping_patience", 0),
         )
 
 
 def main() -> None:
-    # run_experiment(FAST_PROTOTYPE, acquisition_strategy="entropy", run_id=1)
-    run_experiment(MEDIUM_SCALE, acquisition_strategy="entropy", run_id=2)
+    # Full experiments with SMALL_SCALE
+    run_experiment(SMALL_SCALE, acquisition_strategy="random", run_id=1)
 
 
 if __name__ == "__main__":

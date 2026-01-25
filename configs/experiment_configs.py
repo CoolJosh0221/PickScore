@@ -17,7 +17,6 @@ class ExperimentConfig:
     seed_size: int = 500
     pool_size: int = 20000
     test_size: int = 2000
-    random_seed: int = 42
 
     # Model
     pretrained_model_name_or_path: str = "openai/clip-vit-base-patch32"
@@ -43,6 +42,7 @@ class ExperimentConfig:
     num_workers: int = 4
     tie_margin: float = 0.1
     seed: int = 42
+    early_stopping_patience: int = 2  # Stop if val_loss doesn't improve for N epochs (0=disabled)
 
 
 # Pre-defined configurations

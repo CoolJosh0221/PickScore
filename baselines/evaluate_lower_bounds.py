@@ -52,8 +52,8 @@ def snap_prediction(probs: torch.Tensor, tie_margin: float) -> torch.Tensor:
 
 
 pretrained_models = [
-    "yuvalkirstain/PickScore_v1",
-    "openai/clip-vit-base-patch32",
+    # "yuvalkirstain/PickScore_v1",
+    "laion/CLIP-ViT-H-14-laion2B-s32B-b79K",
 ]
 
 for pretrained_model in pretrained_models:

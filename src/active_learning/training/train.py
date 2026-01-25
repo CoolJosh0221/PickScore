@@ -163,7 +163,7 @@ def setup_training(
     processor = build_processor(pretrained_model_name_or_path)
     optimizer = build_optimizer(model, learning_rate, weight_decay)
     scaler = build_scaler(device)
-    train_loader, valid_loader = build_loaders(out_dir, train_batch_size, num_workers)
+    train_loader, valid_loader = build_loaders(out_dir, train_batch_size, num_workers, processor)
     return {
         "out_dir": out_dir,
         "checkpoint_dir": checkpoint_dir,

@@ -68,7 +68,7 @@ class MCDropoutCLIPModel(BaseModel):
 
     def load(self, path):
         """Load the entire model parameters."""
-        state_dict = torch.load(path, map_location="cpu")
+        state_dict = torch.load(path, map_location="cpu", weights_only=True)
         self.load_state_dict(state_dict)
 
     def eval(self):

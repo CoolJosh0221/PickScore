@@ -15,9 +15,11 @@ class ActiveLearningDataManager:
         data_root: str,
         experiment_name: str = "al_experiment",
         num_workers: int = 4,
+        processor=None,
     ):
         self.data_root = Path(data_root)
         self.num_workers = num_workers
+        self.processor = processor
 
         self.state_dir = self.data_root / f"{experiment_name}_state"
         self.state_dir.mkdir(exist_ok=True)
@@ -28,12 +30,27 @@ class ActiveLearningDataManager:
         self.test_dataset = PreferenceDataset(self.data_root / "test")
 
         self.labeled_pool_indices: Set[int] = set()
+        self._unlabeled_indices_cache: List[int] | None = None  # Cache for performance
         self.current_iteration = 0
 
         if self.state_file.exists():
             self._load_state()
         else:
             self._init_state()
+
+    def set_processor(self, processor):
+        """Set the processor for creating collate functions."""
+        self.processor = processor
+
+    def _make_collate(self) -> Collate:
+        """Create a properly initialized Collate instance."""
+        if self.processor is None:
+            raise ValueError(
+                "Processor not set. Call set_processor() or pass processor to __init__."
+            )
+        collater = Collate()
+        collater.set_processor(self.processor)
+        return collater
 
     def _init_state(self):
         self.labeled_pool_indices = set()
@@ -82,7 +99,7 @@ class ActiveLearningDataManager:
             batch_size=batch_size,
             shuffle=shuffle,
             num_workers=self.num_workers,
-            collate_fn=Collate,
+            collate_fn=self._make_collate(),
             pin_memory=True,
             persistent_workers=self.num_workers > 0,
         )
@@ -91,11 +108,7 @@ class ActiveLearningDataManager:
         self, batch_size: int = 32, shuffle: bool = False
     ) -> DataLoader:
         """DataLoader for unlabeled pool data."""
-        unlabeled_indices = [
-            i
-            for i in range(len(self.pool_dataset))
-            if i not in self.labeled_pool_indices
-        ]
+        unlabeled_indices = self.get_unlabeled_pool_indices()
 
         if not unlabeled_indices:
             empty_dataset = ALIndexedDataset(self.pool_dataset, [])
@@ -104,7 +117,7 @@ class ActiveLearningDataManager:
                 batch_size=batch_size,
                 shuffle=False,
                 num_workers=0,
-                collate_fn=Collate,
+                collate_fn=self._make_collate(),
             )
 
         unlabeled_dataset = ALIndexedDataset(self.pool_dataset, unlabeled_indices)
@@ -114,7 +127,7 @@ class ActiveLearningDataManager:
             batch_size=batch_size,
             shuffle=shuffle,
             num_workers=self.num_workers,
-            collate_fn=Collate,
+            collate_fn=self._make_collate(),
             pin_memory=True,
             persistent_workers=self.num_workers > 0,
         )
@@ -129,7 +142,7 @@ class ActiveLearningDataManager:
             batch_size=batch_size,
             shuffle=False,
             num_workers=self.num_workers,
-            collate_fn=Collate,
+            collate_fn=self._make_collate(),
             pin_memory=True,
         )
 
@@ -150,21 +163,29 @@ class ActiveLearningDataManager:
             return
 
         self.labeled_pool_indices.update(valid_indices)
+        self._invalidate_cache()  # Invalidate cache when labels change
         print(
             f"Labeled {len(valid_indices)} samples. Total labeled: {len(self.labeled_pool_indices)}"
         )
         self._save_state()
+
+    def _invalidate_cache(self):
+        """Invalidate the unlabeled indices cache."""
+        self._unlabeled_indices_cache = None
 
     def next_iteration(self):
         self.current_iteration += 1
         self._save_state()
 
     def get_unlabeled_pool_indices(self) -> List[int]:
-        return [
-            i
-            for i in range(len(self.pool_dataset))
-            if i not in self.labeled_pool_indices
-        ]
+        """Get indices of unlabeled pool samples (cached for performance)."""
+        if self._unlabeled_indices_cache is None:
+            self._unlabeled_indices_cache = [
+                i
+                for i in range(len(self.pool_dataset))
+                if i not in self.labeled_pool_indices
+            ]
+        return self._unlabeled_indices_cache
 
     def get_stats(self) -> Dict:
         total_labeled = len(self.seed_dataset) + len(self.labeled_pool_indices)

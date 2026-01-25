@@ -128,7 +128,7 @@ learning_curves.png
 uncertainty_plots.png
 comparison_results.csv
 experiment_logs/
-run_*.sh
+# run_*.sh
 
 # Temporary files
 *.tmp

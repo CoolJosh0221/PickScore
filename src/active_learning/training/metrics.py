@@ -11,7 +11,7 @@ def pref_metrics(
     tie_margin: float = 0.1,
 ) -> Dict[str, float]:
     label_gap = y0 - y1
-    pred_gap = s0 - 0.5
+    pred_gap = s0 - s1  # Compare score difference with label difference
     is_tie = label_gap == 0
     is_non_tie = ~is_tie
     nt_correct = (
