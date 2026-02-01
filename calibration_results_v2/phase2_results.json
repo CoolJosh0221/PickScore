@@ -1,0 +1,20 @@
+{
+  "phase": 2,
+  "timestamp": "2026-02-01T23:39:31.210896",
+  "correlations": {
+    "bald": {
+      "spearman": 0.1853337272586132,
+      "p_value": 4.664777882864409e-13
+    },
+    "entropy": {
+      "spearman": 0.21150500930129343,
+      "p_value": 1.2468220757159377e-16
+    },
+    "least_confidence": {
+      "spearman": 0.21150340061002987,
+      "p_value": 1.2474967251986272e-16
+    },
+    "error_rate": 0.3526666760444641
+  },
+  "interpretation": "Weak"
+}

@@ -1,0 +1,19 @@
+{
+  "phase": 4,
+  "timestamp": "2026-02-01T23:40:28.540334",
+  "optimal_temperature": 5.815784476049637,
+  "baseline": {
+    "ece": 0.17803163492679597,
+    "mce": 0.28633683919906616,
+    "mean_confidence": 0.8218997120857239,
+    "bald_error_spearman": 0.1853337272586132
+  },
+  "calibrated": {
+    "ece": 0.013498285452524818,
+    "mce": 0.07469135522842407,
+    "mean_confidence": 0.6466782093048096,
+    "bald_error_spearman": 0.08131018622326018
+  },
+  "ece_reduction_pct": 92.41804106440121,
+  "bald_correlation_change": -0.10402354103535301
+}

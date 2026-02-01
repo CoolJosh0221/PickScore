@@ -1,0 +1,13 @@
+{
+  "phase": 3,
+  "timestamp": "2026-02-01T23:39:57.201479",
+  "config": {
+    "model_path": "out/random/2/20260125-230556/epoch-0008_overall-0.6053/model.pth",
+    "data_dir": "out/random/2/",
+    "num_mc_samples": 15
+  },
+  "optimal_temperature": 5.815784476049637,
+  "nll_before": 1.1621825695037842,
+  "nll_after": 0.617998480796814,
+  "nll_reduction_pct": 46.82432029068547
+}
