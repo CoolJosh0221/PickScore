@@ -1,5 +1,103 @@
 # Progress Log
 
+## Session: 2026-02-01 (Calibration Analysis)
+
+### Current Status
+- **Phase:** Starting Calibration Analysis - Phase 1
+- **Started:** 2026-02-01
+- **Goal:** Test if fixing calibration rescues active learning
+
+### Session Recovery
+1. Ran session-catchup script - detected 17 unsynced messages
+2. Read all planning files and git diff
+3. Verified checkpoints are available for calibration analysis
+
+### Available Checkpoints for Analysis
+| Run | Best Checkpoint | overall_acc |
+|-----|-----------------|-------------|
+| random/2 | epoch-0008 | **60.53%** |
+| least_confidence/1 | epoch-0003 | 60.80% |
+| random/1 | epoch-0007 | 60.40% |
+| entropy/1 | epoch-0004 | 59.93% |
+
+### ALL PHASES COMPLETE (Refactored v2)
+
+**Phase 1: Baseline Calibration Metrics**
+- ECE = 17.80% (severely miscalibrated)
+- Mean confidence 82% vs 65% accuracy
+
+**Phase 2: Uncertainty-Error Correlation**
+- BALD-Error Spearman ρ = 0.185 (weak, positive)
+- Uncertainty predicts errors, but weakly
+
+**Phase 3: Temperature Scaling**
+- Optimal T = 5.82
+- NLL reduced by 46.8%
+
+**Phase 4: Post-Calibration Evaluation**
+- ECE: 17.80% → 1.35% (92.4% improvement!)
+- BUT BALD-Error ρ: 0.185 → 0.081 (56% WORSE)
+
+**Phase 5: Acquisition Score Comparison**
+- BALD rankings change drastically (only 20% top-100 overlap!)
+- BALD variance collapsed: std 0.107 → 0.010
+- Entropy/LC rankings preserved (~93% correlation)
+
+**KEY CONCLUSION:**
+Temperature scaling fixes calibration but DESTROYS the uncertainty signal that AL relies on. Calibrated BALD will likely perform WORSE than uncalibrated BALD.
+
+**Refactored Module Structure:**
+```
+calibration/
+├── __init__.py
+├── collect.py          # MC prediction collection
+├── metrics.py          # ECE, MCE computation
+├── temperature.py      # Temperature optimization
+├── correlation.py      # Uncertainty-error correlation
+├── bald.py             # BALD, Entropy, LC metrics
+├── plots.py            # Reliability diagrams, scatter plots
+├── run_phase1.py       # Phase 1 entry point
+├── run_phase2.py       # Phase 2 entry point
+├── run_phase3.py       # Phase 3 entry point
+├── run_phase4.py       # Phase 4 entry point
+├── run_phase5.py       # Phase 5 entry point
+└── run_all.py          # Run all phases
+```
+
+**Results:**
+- Old (monolithic): `calibration_results/`
+- New (modular): `calibration_results_v2/`
+
+---
+
+## Session: 2026-02-01 (Previous - Session Recovery)
+
+### Context Summary
+From previous sessions (Jan 25-26, 2026):
+- All critical bugs fixed and committed (ee6ec88)
+- Experiments ran: Random-2 (67.46% pref_acc), BALD-2 (running)
+- Key finding: Random sampling outperforms BALD at scale
+- User requested parallelization for future experiments
+
+### Next Steps
+**Calibration Analysis Plan added** - 5 phases to test if fixing calibration rescues AL.
+
+---
+
+## Calibration Analysis Tasks (Added 2026-02-01)
+
+| Phase | Objective | Status |
+|-------|-----------|--------|
+| 1 | Baseline Calibration Metrics (ECE, MCE, reliability diagram) | pending |
+| 2 | Baseline Uncertainty-Error Correlation (Gleave diagnostic) | pending |
+| 3 | Temperature Scaling (find optimal T) | pending |
+| 4 | Post-Calibration Evaluation (verify improvement) | pending |
+| 5 | AL with Calibrated Uncertainty (test if BALD beats random) | pending |
+
+**Hypothesis:** Miscalibration → Bad Uncertainty → AL Fails
+
+---
+
 ## Session: 2026-01-25 (Pipeline Explanation & Bug Audit)
 
 ### Current Status

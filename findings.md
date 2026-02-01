@@ -6,6 +6,121 @@ This repository implements **Active Learning for Human Preference Prediction** i
 
 ---
 
+## Next Research Direction: Calibration Analysis
+
+### Hypothesis
+**Miscalibration → Bad Uncertainty → AL Fails**
+
+Random sampling outperformed uncertainty-based AL methods (BALD, Entropy, Least Confidence). One possible explanation: the model's uncertainty estimates are poorly calibrated, making acquisition functions select uninformative samples.
+
+### Approach
+1. **Diagnose:** Measure calibration (ECE, MCE) and uncertainty-error correlation
+2. **Fix:** Apply temperature scaling to calibrate predictions
+3. **Verify:** Check if calibrated uncertainty correlates better with error
+4. **Test:** Run AL experiments with calibrated acquisition functions
+
+### Key Question
+Does calibrated BALD beat random sampling?
+
+### Phase 1 Results: Baseline Calibration (MC Dropout, T=15)
+
+**The model is severely miscalibrated (ECE=18.12%)**
+
+| Metric | Value | Interpretation |
+|--------|-------|----------------|
+| ECE | **18.12%** | Far above 5% threshold |
+| MCE | 29.11% | Worst bin has 29% gap |
+| Mean Confidence | 82.27% | Very overconfident |
+| Overall Accuracy | 64.27% | 18% gap vs confidence |
+
+---
+
+### Phase 2 Results: Uncertainty-Error Correlation
+
+**BALD uncertainty has moderate correlation with errors (ρ=0.215)**
+
+| Uncertainty Metric | Spearman ρ | p-value | Interpretation |
+|--------------------|------------|---------|----------------|
+| **BALD** | 0.215 | 4.09e-17 | Moderate |
+| Entropy | 0.231 | 1.39e-19 | Moderate |
+| Least Confidence | 0.231 | 1.39e-19 | Moderate |
+
+**Interpretation:** Uncertainty DOES predict errors (positive correlation), but the signal is weak. This explains why uncertainty-based AL doesn't dramatically outperform random.
+
+---
+
+### Phase 3 Results: Temperature Scaling
+
+**Optimal temperature T = 5.78**
+
+| Metric | Before | After | Change |
+|--------|--------|-------|--------|
+| NLL | 1.163 | 0.618 | -46.9% |
+
+**Why T is so high:** The model's logit_scale = 100, which amplifies small cosine similarity differences into extreme confidence. Temperature scaling counteracts this.
+
+---
+
+### Phase 4 Results: Post-Calibration Evaluation
+
+**Calibration dramatically improves ECE but HURTS uncertainty-error correlation!**
+
+| Metric | Baseline | Calibrated (T=5.78) | Change |
+|--------|----------|---------------------|--------|
+| **ECE** | 18.12% | **1.99%** | **-89%** |
+| MCE | 29.11% | 7.36% | -75% |
+| Mean Confidence | 82.27% | 64.74% | ↓ |
+| **BALD-Error ρ** | 0.215 | **0.104** | **-51%** |
+
+**Critical Finding:** Temperature scaling fixes calibration (ECE) but DESTROYS the uncertainty-error signal that AL relies on!
+
+---
+
+### Phase 5 Results: Acquisition Score Comparison
+
+| Acquisition | Rank Correlation | Top-100 Overlap |
+|-------------|------------------|-----------------|
+| BALD | 0.651 | 51% |
+| Entropy | 0.985 | ~99% |
+| Least Confidence | 0.985 | ~99% |
+
+**Interpretation:**
+- Calibration significantly changes BALD rankings (only 51% overlap in top-100)
+- Entropy and LC are barely affected (temperature scaling preserves their rankings)
+- BALD's epistemic uncertainty (model disagreement) is sensitive to temperature
+
+---
+
+### Final Conclusions
+
+**Q: Does fixing calibration rescue Active Learning?**
+**A: NO.**
+
+1. **Calibration (ECE) is fixed:** 18% → 2% with T=5.78
+2. **But uncertainty-error correlation drops:** 0.215 → 0.104
+3. **Temperature scaling compresses the probability distribution**, reducing the variance that BALD relies on
+
+**Why this happens:**
+- BALD = H[E[p]] - E[H[p]] measures disagreement between MC samples
+- Temperature scaling makes all MC samples more similar (less peaked)
+- This reduces apparent disagreement, weakening BALD's signal
+
+**Implication for AL:**
+- Calibrated BALD will likely perform WORSE than uncalibrated BALD
+- The moderate baseline correlation (ρ=0.215) was already weak
+- Random sampling may genuinely be optimal for this task
+
+**Alternative hypothesis to explore:**
+- The preference prediction task may have high irreducible noise
+- Human preferences may be inherently unpredictable for similar images
+- Diversity-based methods (Coreset) might be more appropriate than uncertainty
+
+### References
+- Guo et al. (2017) "On Calibration of Modern Neural Networks" - Temperature scaling
+- Gleave diagnostic: Spearman(uncertainty, error) as quality measure
+
+---
+
 ## Architecture & Pipeline
 
 ### High-Level Flow
