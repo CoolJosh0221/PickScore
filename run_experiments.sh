@@ -9,7 +9,7 @@ echo "Starting experiments..."
 echo "Log file: $LOG_FILE"
 echo "Monitor with: tail -f $LOG_FILE"
 
-nohup python run_experiments.py > "$LOG_FILE" 2>&1 &
+nohup uv run run_experiments.py > "$LOG_FILE" 2>&1 &
 
 echo "PID: $!"
 echo "Experiments running in background."

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Run SMALL_SCALE experiments: Random vs BALD."""
 
 from experiments.experiment import run_experiment
